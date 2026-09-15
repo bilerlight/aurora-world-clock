@@ -1,0 +1,92 @@
+<Window x:Class="AuroraClock.ReminderPopup"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reminder"
+        Width="470" Height="300"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        Topmost="True"
+        WindowStartupLocation="Manual">
+
+    <Window.Resources>
+        <!-- halftone dot screen, like a printed comic -->
+        <DrawingBrush x:Key="Halftone" TileMode="Tile"
+                      Viewport="0,0,7,7" ViewportUnits="Absolute" Stretch="None">
+            <DrawingBrush.Drawing>
+                <GeometryDrawing Brush="#26000000">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="3.5,3.5" RadiusX="1.45" RadiusY="1.45" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+
+        <DrawingBrush x:Key="HalftoneWarm" TileMode="Tile"
+                      Viewport="0,0,6,6" ViewportUnits="Absolute" Stretch="None">
+            <DrawingBrush.Drawing>
+                <GeometryDrawing Brush="#33FF6A2A">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="3,3" RadiusX="1.2" RadiusY="1.2" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+    </Window.Resources>
+
+    <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform>
+            <TransformGroup>
+                <ScaleTransform x:Name="PopScale" ScaleX="1" ScaleY="1" />
+                <RotateTransform x:Name="PopRotate" Angle="0" />
+            </TransformGroup>
+        </Grid.RenderTransform>
+
+        <Canvas>
+            <!-- hard offset shadow, classic comic print -->
+            <Border Canvas.Left="9" Canvas.Top="9" Width="440" Height="266"
+                    CornerRadius="20" Background="#F00A0A0A" />
+
+            <!-- the panel -->
+            <Border Canvas.Left="0" Canvas.Top="0" Width="440" Height="266"
+                    CornerRadius="20" Background="#FFFBF0D5"
+                    BorderBrush="#FF0A0A0A" BorderThickness="4">
+                <Grid>
+                    <Border CornerRadius="16" Background="{StaticResource Halftone}" Opacity="0.85" />
+                    <Border CornerRadius="16" Background="{StaticResource HalftoneWarm}" />
+                    <Border CornerRadius="16" Margin="10" BorderBrush="#FF0A0A0A"
+                            BorderThickness="2" Background="#00FFFFFF" />
+                    <StackPanel Margin="30,26,30,24">
+                        <TextBlock x:Name="HeaderText" Text="提醒!"
+                                   FontFamily="Impact, Arial Black, Segoe UI Variable Display"
+                                   FontSize="34" Foreground="#FF0A0A0A" />
+                        <TextBlock x:Name="TimeText"
+                                   FontFamily="Segoe UI Variable Display, Segoe UI"
+                                   FontSize="15" FontWeight="Bold" Foreground="#FFB4340A"
+                                   Margin="2,2,0,0" />
+                        <TextBlock x:Name="BodyText" Text=""
+                                   FontFamily="Segoe UI Variable Display, Segoe UI"
+                                   FontSize="27" FontWeight="Bold" Foreground="#FF101010"
+                                   TextWrapping="Wrap" Margin="2,16,0,0" />
+                        <TextBlock Text="点击任意位置关闭 · click anywhere to dismiss"
+                                   FontFamily="Segoe UI Variable Text, Segoe UI"
+                                   FontSize="12" Foreground="#FF6B5B3A" Margin="2,0,0,0"
+                                   VerticalAlignment="Bottom" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- pop burst badge -->
+            <Canvas Canvas.Left="352" Canvas.Top="-26" Width="110" Height="110">
+                <Polygon Points="55,0 68,30 102,22 84,48 112,68 78,74 84,108 56,88 34,112 30,78 0,70 26,48 6,22 40,30"
+                         Fill="#FFFFD400" Stroke="#FF0A0A0A" StrokeThickness="4" />
+                <TextBlock Text="!" FontFamily="Impact, Arial Black"
+                           FontSize="58" Foreground="#FF0A0A0A"
+                           Canvas.Left="45" Canvas.Top="24" />
+            </Canvas>
+        </Canvas>
+    </Grid>
+</Window>

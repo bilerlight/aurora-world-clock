@@ -26,6 +26,17 @@ tray-first control model.
 | 🚀 **Start with Windows** | One toggle (registry `Run` key, no admin rights required). |
 | 💾 **Portable settings** | Everything is stored in `%AppData%\AuroraClock\config.json`. |
 
+### Productivity extras
+
+| | |
+|---|---|
+| 💥 **Comic-book reminders** | Schedule a reminder and a hand-drawn "POW!" card pops up — halftone paper, thick ink outline, starburst badge. Click anywhere to dismiss. |
+| 📅 **Smart repeat rules** | Once · every day · **workdays only** · **大小周 (alternating 5/6-day weeks)** · every N minutes. |
+| 📝 **Sticky notes** | Drop a note on the desktop; it shows a live countdown and removes itself when the time is up (5 min → permanent). |
+| ☑️ **Todo list** | Quick checklist, completed items struck through. |
+| 📊 **CC Switch usage** | A small glass widget mirrors the usage CC Switch records (`~/.cc-switch/cc-switch.db`): today's cost, tokens and per-app breakdown, refreshed every 10 s. It hides itself whenever CC Switch is not running. |
+| 🎛 **Aurora Center** | One window that merges todos, reminders, notes and usage (tray → *Aurora 中心*). |
+
 ---
 
 ## ⌨️ Hotkeys
@@ -96,15 +107,21 @@ pwsh -File build.ps1
 ```
 AuroraClock/
 ├─ App.xaml(.cs)                 app bootstrap, theme, styles
-├─ ClockWidget.xaml(.cs)         the widget window: glass layers, drag, morph, menu
+├─ ClockWidget.xaml(.cs)         the clock widget: glass layers, drag, morph, menu
+├─ ReminderPopup.xaml(.cs)       comic-book reminder card
+├─ NoteWindow.xaml(.cs)          desktop sticky note with countdown
+├─ UsageWidget.xaml(.cs)         CC Switch usage widget
+├─ DashboardWindow.xaml(.cs)     Aurora Center: todos / reminders / notes / usage
 ├─ SettingsWindow.xaml(.cs)      clock list + global options
 ├─ CityPickerWindow.xaml(.cs)    searchable city / time-zone picker
 ├─ Controls/AnalogClock.cs       fully code-rendered analog face (ticks, hands, labels)
-├─ Models/ClockItem.cs           per-clock model
+├─ Models/                       ClockItem, Reminder, NoteItem, TodoItem
 ├─ Services/
 │   ├─ AppController.cs          central hub: config, widgets, hotkeys
-│   ├─ AcrylicHelper.cs          glass tint for the settings / picker windows
 │   ├─ BackdropService.cs        capture + blur behind a widget (true shaped frost)
+│   ├─ ReminderService.cs        reminder scheduler (day rules, intervals)
+│   ├─ CcSwitchUsage.cs          live usage reader for cc-switch.db
+│   ├─ AcrylicHelper.cs          glass tint for the dialog windows
 │   ├─ WindowFx.cs               click-through / no-activate extended styles
 │   ├─ HotkeyManager.cs          RegisterHotKey sink
 │   ├─ AutostartService.cs       HKCU Run entry
@@ -114,6 +131,10 @@ AuroraClock/
 ├─ installer/                    install.ps1, uninstall.ps1, setup.iss
 └─ tools/make-icon.ps1           multi-size .ico generator
 ```
+
+> The CC Switch usage widget reads `~/.cc-switch/cc-switch.db` read-only via
+> `Microsoft.Data.Sqlite` (the only NuGet dependency). If CC Switch is absent the widget simply
+> stays hidden.
 
 ---
 

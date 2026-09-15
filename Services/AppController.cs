@@ -13,9 +13,13 @@ namespace AuroraClock.Services
         public static AppController Instance { get; } = new();
 
         private readonly Dictionary<string, ClockWidget> _widgets = new();
+        private readonly Dictionary<string, NoteWindow> _noteWindows = new();
         private TrayIcon? _tray;
         private HotkeyManager? _hotkeys;
         private SettingsWindow? _settings;
+        private DashboardWindow? _dashboard;
+        private UsageWidget? _usageWidget;
+        private ReminderService? _reminders;
         private bool _shuttingDown;
 
         public AppConfig Config { get; private set; } = new();
@@ -42,12 +46,18 @@ namespace AuroraClock.Services
             // "--hidden" starts tucked away in the tray (useful for a manual autostart entry).
             // "--settings" opens the settings window straight away.
             bool wantSettings = false;
+            bool wantCenter = false;
+            bool wantPopup = false;
             foreach (var arg in Environment.GetCommandLineArgs())
             {
                 if (string.Equals(arg, "--hidden", StringComparison.OrdinalIgnoreCase))
                     Config.Hidden = true;
                 else if (string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase))
                     wantSettings = true;
+                else if (string.Equals(arg, "--center", StringComparison.OrdinalIgnoreCase))
+                    wantCenter = true;
+                else if (string.Equals(arg, "--testpopup", StringComparison.OrdinalIgnoreCase))
+                    wantPopup = true;
             }
 
             // keep registry in sync with the saved preference
@@ -69,10 +79,25 @@ namespace AuroraClock.Services
 
             if (Config.ClickThrough) ApplyClickThrough();
 
+            // reminders / notes / usage
+            _reminders = new ReminderService(this);
+            _reminders.Due += r => ShowReminderPopup(r);
+            _reminders.Start();
+
+            foreach (var n in Config.Notes) ShowNoteWindow(n);
+            SyncUsageWidget();
+
             // Write the config on first run so it is discoverable/editable straight away.
             Save();
 
             if (wantSettings) ShowSettings();
+            if (wantCenter) ShowDashboard();
+            if (wantPopup) ShowReminderPopup(new Models.Reminder
+            {
+                Text = "喝水！站起来活动一下",
+                Time = DateTime.Now.ToString("HH:mm"),
+                Repeat = Models.RepeatMode.Daily
+            }, sticky: true);
         }
 
         // Labels reflect the key that actually got registered (some may be taken by other apps).
@@ -148,10 +173,82 @@ namespace AuroraClock.Services
             if (_shuttingDown) return;
             _shuttingDown = true;
             Save();
+            _reminders?.Dispose();
+            _reminders = null;
             _hotkeys?.Dispose();
             _hotkeys = null;
             _tray?.Dispose();
             _tray = null;
+        }
+
+        // -------------------------------------------------- reminders / notes
+        private void ShowReminderPopup(Models.Reminder r, bool sticky = false)
+        {
+            try
+            {
+                var popup = new ReminderPopup(r, sticky);
+                popup.Show();
+            }
+            catch (Exception ex)
+            {
+                App.Log(ex);
+            }
+            _dashboard?.RefreshAll();
+        }
+
+        public void ShowDashboard()
+        {
+            if (_dashboard == null)
+            {
+                _dashboard = new DashboardWindow(this);
+                _dashboard.Closed += (_, _) => _dashboard = null;
+            }
+            _dashboard.RefreshAll();
+            _dashboard.Show();
+            _dashboard.Activate();
+            _dashboard.Topmost = Config.AlwaysOnTop;
+        }
+
+        public void ShowNoteWindow(Models.NoteItem note)
+        {
+            if (_noteWindows.TryGetValue(note.Id, out var existing))
+            {
+                existing.Show();
+                existing.Activate();
+                return;
+            }
+            var w = new NoteWindow(note, this);
+            _noteWindows[note.Id] = w;
+            w.Closed += (_, _) => _noteWindows.Remove(note.Id);
+            w.Show();
+        }
+
+        public void HideNoteWindow(Models.NoteItem note)
+        {
+            if (_noteWindows.TryGetValue(note.Id, out var w)) w.Close();
+        }
+
+        /// <summary>Called when a note's text is edited in its desktop window.</summary>
+        public void NotesChanged()
+        {
+            Save();
+            _dashboard?.RefreshAll();
+        }
+
+        public void SyncUsageWidget()
+        {
+            bool wanted = Config.ShowUsageWidget && CcSwitchUsage.IsRunning();
+            if (wanted && _usageWidget == null)
+            {
+                _usageWidget = new UsageWidget(this);
+                _usageWidget.Closed += (_, _) => _usageWidget = null;
+                _usageWidget.Show();
+            }
+            else if (_usageWidget != null)
+            {
+                if (!Config.ShowUsageWidget) _usageWidget.Hide();
+                else _usageWidget.ApplyPosition();
+            }
         }
 
         public void Quit()

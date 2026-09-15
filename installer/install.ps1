@@ -50,7 +50,7 @@ if ($Desktop) {
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AuroraWorldClock'
 New-Item -Path $uninstallKey -Force | Out-Null
 Set-ItemProperty $uninstallKey 'DisplayName'     'Aurora World Clock'
-Set-ItemProperty $uninstallKey 'DisplayVersion'  '1.0.0'
+Set-ItemProperty $uninstallKey 'DisplayVersion'  '1.1.0'
 Set-ItemProperty $uninstallKey 'Publisher'       'Aurora'
 Set-ItemProperty $uninstallKey 'DisplayIcon'     $installedExe
 Set-ItemProperty $uninstallKey 'InstallLocation' $Target
@@ -73,3 +73,4 @@ if ($Run) {
 }
 
 Write-Host "Installed. Uninstall from Apps & features or run uninstall.ps1." -ForegroundColor Green
+

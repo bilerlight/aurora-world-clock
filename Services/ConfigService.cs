@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -41,14 +42,52 @@ namespace AuroraClock.Services
         public double DefaultSize { get; set; } = 210;
 
         public List<ClockItem> Clocks { get; set; } = new();
+
+        // ---- extras -------------------------------------------------------
+        public List<Reminder> Reminders { get; set; } = new();
+        public List<NoteItem> Notes { get; set; } = new();
+        public List<TodoItem> Todos { get; set; } = new();
+
+        public bool ShowUsageWidget { get; set; } = true;
+        public double UsageX { get; set; } = double.NaN;
+        public double UsageY { get; set; } = double.NaN;
     }
 
     public static class ConfigService
     {
+        /// <summary>
+        /// Positions are stored as NaN until they are first laid out. System.Text.Json refuses to
+        /// write NaN and cannot read null into a double, so both are normalised here.
+        /// </summary>
+        private sealed class LooseDoubleConverter : JsonConverter<double>
+        {
+            public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.Null:
+                        return double.NaN;
+                    case JsonTokenType.Number:
+                        return reader.GetDouble();
+                    case JsonTokenType.String:
+                        return double.TryParse(reader.GetString(), NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out var d) ? d : double.NaN;
+                    default:
+                        return double.NaN;
+                }
+            }
+
+            public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value)) writer.WriteNullValue();
+                else writer.WriteNumberValue(value);
+            }
+        }
+
         private static readonly JsonSerializerOptions Options = new()
         {
             WriteIndented = true,
-            Converters = { new JsonStringEnumConverter() }
+            Converters = { new JsonStringEnumConverter(), new LooseDoubleConverter() }
         };
 
         public static string Dir { get; } = Path.Combine(

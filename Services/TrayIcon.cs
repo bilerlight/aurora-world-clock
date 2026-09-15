@@ -17,6 +17,7 @@ namespace AuroraClock.Services
         private ToolStripMenuItem? _autoItem;
         private ToolStripMenuItem? _passItem;
         private ToolStripMenuItem? _visItem;
+        private ToolStripMenuItem? _usageItem;
 
         public TrayIcon(AppController app) => _app = app;
 
@@ -54,6 +55,17 @@ namespace AuroraClock.Services
             _menu.Items.Add(_autoItem);
 
             _menu.Items.Add(new ToolStripSeparator());
+            _menu.Items.Add(Item("Aurora 中心（待办/提醒/便签/用量）", (_, _) => _app.ShowDashboard()));
+            var usage = new ToolStripMenuItem("显示用量组件");
+            usage.Click += (_, _) =>
+            {
+                _app.Config.ShowUsageWidget = !_app.Config.ShowUsageWidget;
+                _app.Save();
+                _app.SyncUsageWidget();
+                Sync();
+            };
+            _usageItem = usage;
+            _menu.Items.Add(usage);
             _menu.Items.Add(Item("添加时钟…  Add clock", (_, _) => AddClock()));
             _menu.Items.Add(Item("排列全部时钟  Tile all", (_, _) => _app.TileAll()));
             _menu.Items.Add(Item("设置…  Settings (" + _app.LabelSettings + ")", (_, _) => _app.ShowSettings()));
@@ -79,6 +91,7 @@ namespace AuroraClock.Services
             if (_autoItem != null) _autoItem.Checked = _app.Config.StartWithWindows;
             if (_passItem != null) _passItem.Checked = _app.Config.ClickThrough;
             if (_visItem != null) _visItem.Checked = !_app.Config.Hidden;
+            if (_usageItem != null) _usageItem.Checked = _app.Config.ShowUsageWidget;
         }
 
         /// <summary>Balloon tip used to explain how to come back from click-through mode.</summary>
