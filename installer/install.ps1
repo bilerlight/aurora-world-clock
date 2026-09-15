@@ -21,7 +21,7 @@ if (-not (Test-Path (Join-Path $src $exe))) {
 Write-Host "Installing to $Target" -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $Target | Out-Null
 
-Get-ChildItem -Path $src -File | Where-Object { $_.Name -ne 'install.ps1' -and $_.Name -ne 'uninstall.ps1' } |
+Get-ChildItem -Path $src -File | Where-Object { $_.Name -ne 'install.ps1' } |
   ForEach-Object { Copy-Item $_.FullName (Join-Path $Target $_.Name) -Force }
 
 $installedExe = Join-Path $Target $exe
