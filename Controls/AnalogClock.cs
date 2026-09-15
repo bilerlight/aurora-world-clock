@@ -19,6 +19,7 @@ namespace AuroraClock.Controls
         public static readonly DependencyProperty ShowDateProperty = Reg<bool>(nameof(ShowDate), true);
         public static readonly DependencyProperty ShowNumbersProperty = Reg<bool>(nameof(ShowNumbers), false);
         public static readonly DependencyProperty ShowSecondHandProperty = Reg<bool>(nameof(ShowSecondHand), true);
+        public static readonly DependencyProperty ShowFacePlateProperty = Reg<bool>(nameof(ShowFacePlate), true);
         public static readonly DependencyProperty SweepSecondsProperty = Reg<bool>(nameof(SweepSeconds), true);
         public static readonly DependencyProperty AccentColorProperty = Reg(nameof(AccentColor), Color.FromRgb(0x7C, 0xC4, 0xFF));
         public static readonly DependencyProperty TextColorProperty = Reg(nameof(TextColor), Color.FromRgb(0xF2, 0xF6, 0xFC));
@@ -39,6 +40,8 @@ namespace AuroraClock.Controls
         public bool ShowDate { get => (bool)GetValue(ShowDateProperty); set => SetValue(ShowDateProperty, value); }
         public bool ShowNumbers { get => (bool)GetValue(ShowNumbersProperty); set => SetValue(ShowNumbersProperty, value); }
         public bool ShowSecondHand { get => (bool)GetValue(ShowSecondHandProperty); set => SetValue(ShowSecondHandProperty, value); }
+        /// <summary>False lets a custom dial image show through instead of the built-in glass face.</summary>
+        public bool ShowFacePlate { get => (bool)GetValue(ShowFacePlateProperty); set => SetValue(ShowFacePlateProperty, value); }
         public bool SweepSeconds { get => (bool)GetValue(SweepSecondsProperty); set => SetValue(SweepSecondsProperty, value); }
         public Color AccentColor { get => (Color)GetValue(AccentColorProperty); set => SetValue(AccentColorProperty, value); }
         public Color TextColor { get => (Color)GetValue(TextColorProperty); set => SetValue(TextColorProperty, value); }
@@ -77,29 +80,72 @@ namespace AuroraClock.Controls
             Color text = TextColor;
             Color accent = AccentColor;
 
-            // ---- face ------------------------------------------------------
+            // ---- face: recessed dome ---------------------------------------
             var faceBrush = new RadialGradientBrush
             {
-                GradientOrigin = new Point(0.35, 0.28),
-                Center = new Point(0.45, 0.42),
-                RadiusX = 0.9,
-                RadiusY = 0.9
+                GradientOrigin = new Point(0.34, 0.26),
+                Center = new Point(0.42, 0.40),
+                RadiusX = 1.0,
+                RadiusY = 1.0
             };
-            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(60 * dim), 255, 255, 255), 0.0));
-            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(14 * dim), 255, 255, 255), 0.45));
-            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(36 * dim), 0, 0, 0), 1.0));
+            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(78 * dim), 255, 255, 255), 0.0));
+            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(24 * dim), 255, 255, 255), 0.40));
+            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(12 * dim), 0, 0, 0), 0.78));
+            faceBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(104 * dim), 0, 0, 0), 1.0));
             faceBrush.Freeze();
-            if (r > size * 0.30)
+            if (ShowFacePlate)
+            {
                 dc.DrawEllipse(faceBrush, null, new Point(cx, cy), r, r);
 
-            // ---- rim -------------------------------------------------------
-            var rimPen = new Pen(new SolidColorBrush(Color.FromArgb((byte)(70 * dim), 255, 255, 255)), Math.Max(1, size * 0.008));
-            rimPen.Freeze();
-            dc.DrawEllipse(null, rimPen, new Point(cx, cy), r - rimPen.Thickness / 2, r - rimPen.Thickness / 2);
+                // inner shadow: the dial sits *under* the bezel
+                var innerShadow = new RadialGradientBrush
+                {
+                    Center = new Point(0.5, 0.5),
+                    GradientOrigin = new Point(0.5, 0.5),
+                    RadiusX = 0.5,
+                    RadiusY = 0.5
+                };
+                innerShadow.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.0));
+                innerShadow.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.70));
+                innerShadow.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(130 * dim), 0, 0, 0), 1.0));
+                innerShadow.Freeze();
+                dc.DrawEllipse(innerShadow, null, new Point(cx, cy), r, r);
+            }
+            else
+            {
+                // keep a soft vignette so a custom photo still reads as a dial
+                var vignette = new RadialGradientBrush
+                {
+                    Center = new Point(0.5, 0.5),
+                    GradientOrigin = new Point(0.5, 0.5),
+                    RadiusX = 0.5,
+                    RadiusY = 0.5
+                };
+                vignette.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.0));
+                vignette.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.60));
+                vignette.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(150 * dim), 0, 0, 0), 1.0));
+                vignette.Freeze();
+                dc.DrawEllipse(vignette, null, new Point(cx, cy), r, r);
+            }
 
-            var accentRing = new Pen(new SolidColorBrush(Color.FromArgb((byte)(30 * dim), accent.R, accent.G, accent.B)), Math.Max(1, size * 0.004));
+            // ---- raised bezel: lit top-left, shaded bottom-right -----------
+            var bezel = new LinearGradientBrush(
+                Color.FromArgb((byte)(225 * dim), 255, 255, 255),
+                Color.FromArgb((byte)(130 * dim), 0, 0, 0),
+                new Point(0.15, 0.0), new Point(0.85, 1.0));
+            bezel.Freeze();
+            double bezelW = Math.Max(1.6, size * 0.030);
+            var bezelPen = new Pen(bezel, bezelW);
+            dc.DrawEllipse(null, bezelPen, new Point(cx, cy), r - bezelW * 0.55, r - bezelW * 0.55);
+
+            // hairline just inside the bezel for a crisp edge
+            var hairline = new Pen(new SolidColorBrush(Color.FromArgb((byte)(70 * dim), 255, 255, 255)), Math.Max(1, size * 0.005));
+            hairline.Freeze();
+            dc.DrawEllipse(null, hairline, new Point(cx, cy), r - bezelW, r - bezelW);
+
+            var accentRing = new Pen(new SolidColorBrush(Color.FromArgb((byte)(38 * dim), accent.R, accent.G, accent.B)), Math.Max(1, size * 0.004));
             accentRing.Freeze();
-            dc.DrawEllipse(null, accentRing, new Point(cx, cy), r - size * 0.035, r - size * 0.035);
+            dc.DrawEllipse(null, accentRing, new Point(cx, cy), r - size * 0.055, r - size * 0.055);
 
             bool tiny = size < 52;
 
@@ -155,13 +201,26 @@ namespace AuroraClock.Controls
                     new SolidColorBrush(accent), handShadow, dim);
             }
 
-            // ---- centre cap ------------------------------------------------
-            var capBrush = new SolidColorBrush(accent);
+            // ---- domed centre cap ------------------------------------------
+            double capR = size * 0.019;
+            var capShadow = new SolidColorBrush(Color.FromArgb((byte)(110 * dim), 0, 0, 0));
+            capShadow.Freeze();
+            dc.DrawEllipse(capShadow, null, new Point(cx + size * 0.004, cy + size * 0.004), capR * 1.15, capR * 1.15);
+
+            var capBrush = new RadialGradientBrush
+            {
+                GradientOrigin = new Point(0.35, 0.30),
+                Center = new Point(0.5, 0.5)
+            };
+            capBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * dim), 255, 255, 255), 0.0));
+            capBrush.GradientStops.Add(new GradientStop(accent, 0.55));
+            capBrush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(210 * dim), 0, 0, 0), 1.0));
             capBrush.Freeze();
-            dc.DrawEllipse(capBrush, null, new Point(cx, cy), size * 0.017, size * 0.017);
-            var capRing = new Pen(new SolidColorBrush(Color.FromArgb((byte)(160 * dim), text.R, text.G, text.B)), Math.Max(1, size * 0.004));
+            dc.DrawEllipse(capBrush, null, new Point(cx, cy), capR, capR);
+
+            var capRing = new Pen(new SolidColorBrush(Color.FromArgb((byte)(170 * dim), text.R, text.G, text.B)), Math.Max(1, size * 0.0035));
             capRing.Freeze();
-            dc.DrawEllipse(null, capRing, new Point(cx, cy), size * 0.017, size * 0.017);
+            dc.DrawEllipse(null, capRing, new Point(cx, cy), capR, capR);
 
             // ---- glass sheen ----------------------------------------------
             var sheen = new LinearGradientBrush(
@@ -221,19 +280,20 @@ namespace AuroraClock.Controls
                 string time = now.ToString("HH:mm", CultureInfo.InvariantCulture);
                 var ft = new FormattedText(time, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
                     FaceBold, Math.Max(11, size * 0.150), textBrush, pixels);
-                ft.MaxTextWidth = r * 1.6;
-                ft.TextAlignment = TextAlignment.Center;
 
                 FormattedText? ftSec = null;
                 if (ShowSecondHand)
                 {
                     ftSec = new FormattedText(now.ToString("ss", CultureInfo.InvariantCulture),
                         CultureInfo.InvariantCulture, FlowDirection.LeftToRight, FaceBold,
-                        Math.Max(7.5, size * 0.068), new SolidColorBrush(accent), pixels);
+                        Math.Max(7.5, size * 0.066), new SolidColorBrush(accent), pixels);
                 }
 
+                // NOTE: FormattedText.Width returns MaxTextWidth once that is set, so measure
+                // first and lay the time + seconds out by hand.
+                double gap = size * 0.030;
+                double total = ftSec != null ? ft.Width + gap + ftSec.Width : ft.Width;
                 double baseY = cy + r * 0.30;
-                double total = ftSec != null ? ft.Width + size * 0.028 + ftSec.Width : ft.Width;
                 var p = new Point(cx - total / 2, baseY);
 
                 ft.SetForegroundBrush(glowBrush);
@@ -243,7 +303,7 @@ namespace AuroraClock.Controls
 
                 if (ftSec != null)
                 {
-                    var ps = new Point(p.X + ft.Width + size * 0.028, p.Y + ft.Height - ftSec.Height);
+                    var ps = new Point(p.X + ft.Width + gap, p.Y + ft.Height - ftSec.Height);
                     ftSec.SetForegroundBrush(glowBrush);
                     dc.DrawText(ftSec, new Point(ps.X + sh, ps.Y + sh));
                     ftSec.SetForegroundBrush(new SolidColorBrush(accent));

@@ -19,6 +19,7 @@ namespace AuroraClock
         private readonly AppController _app;
         private readonly Stopwatch _frameClock = Stopwatch.StartNew();
 
+        private BackdropService? _backdrop;
         private bool _dragging;
         private Point _dragStartDevice;
         private Point _windowStart;
@@ -39,7 +40,7 @@ namespace AuroraClock
             Loaded += OnLoaded;
             Closing += OnClosing;
             SizeChanged += (_, _) => UpdateGeometry();
-            DpiChanged += (_, _) => UpdateGeometry();
+            DpiChanged += (_, _) => { UpdateGeometry(); _backdrop?.Refresh(); };
             MouseLeftButtonDown += OnMouseLeftDown;
             MouseMove += OnMouseMove;
             MouseLeftButtonUp += OnMouseLeftUp;
@@ -55,6 +56,7 @@ namespace AuroraClock
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             ApplyTheme();
+            ApplyFaceImage();
             ApplyClockProperties();
 
             double size = Clamp(_item.Size, 120, 460);
@@ -66,16 +68,24 @@ namespace AuroraClock
             RestorePosition();
 
             Noise.Background = NoiseBrush();
-            Noise.Opacity = 0.55;
 
-            Opacity = Clamp(_app.Config.Opacity, 0.25, 1.0);
             Topmost = _app.Config.AlwaysOnTop;
             ContextMenu = BuildMenu();
 
             _ready = true;
             UpdateGeometry();
             ApplyClickThrough();
+
+            RestartBackdrop();
+
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            CompositionTarget.Rendering -= OnRendering;
+            _backdrop?.Dispose();
+            _backdrop = null;
         }
 
         private static ImageBrush? _noise;
@@ -92,10 +102,10 @@ namespace AuroraClock
             for (int i = 0; i < n * n; i++)
             {
                 byte v = (byte)rnd.Next(110, 205);
-                buf[i * 4 + 0] = v;                          // B
-                buf[i * 4 + 1] = v;                          // G
-                buf[i * 4 + 2] = v;                          // R
-                buf[i * 4 + 3] = (byte)rnd.Next(0, 16);      // A - very subtle grain
+                buf[i * 4 + 0] = v;
+                buf[i * 4 + 1] = v;
+                buf[i * 4 + 2] = v;
+                buf[i * 4 + 3] = (byte)rnd.Next(0, 26);
             }
             wb.WritePixels(new Int32Rect(0, 0, n, n), buf, n * 4, 0);
             wb.Freeze();
@@ -111,66 +121,140 @@ namespace AuroraClock
             return _noise;
         }
 
-        public void ApplyClickThrough()
-        {
-            if (!_ready) return;
-            WindowFx.SetClickThrough(this, _app.Config.ClickThrough);
-            PassRim.BeginAnimation(OpacityProperty, new DoubleAnimation(
-                PassRim.Opacity, _app.Config.ClickThrough ? 0.9 : 0.0, TimeSpan.FromMilliseconds(220)));
-        }
-
-        private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
-        {
-            CompositionTarget.Rendering -= OnRendering;
-        }
-
         private void ApplyTheme()
         {
+            // No DWM acrylic any more: the frosted backdrop is captured + blurred by BackdropService,
+            // which lets the glass be *shaped* (a circle) instead of a blurred rectangle.
             double tint = Clamp(_app.Config.GlassTint, 0, 1);
-            double a = 0.13 + tint * 0.34;
-            Glass.Background = new SolidColorBrush(Color.FromArgb((byte)(a * 255), TintColor.R, TintColor.G, TintColor.B));
+            double alpha = (HasFaceImage ? 0.06 + tint * 0.18 : 0.20 + tint * 0.40)
+                           * Clamp(_app.Config.Opacity, 0.35, 1.0);
+            Tint.Background = new SolidColorBrush(Color.FromArgb((byte)(alpha * 255), TintColor.R, TintColor.G, TintColor.B));
 
             var accent = ParseColor(_item.Accent, Color.FromRgb(0x7C, 0xC4, 0xFF));
             GlowRim.BorderBrush = new SolidColorBrush(accent);
-
-            AcrylicHelper.Enable(this, TintColor, 0.14 + tint * 0.24);
         }
-
-        private double AcrylicTint => 0.14 + Clamp(_app.Config.GlassTint, 0, 1) * 0.24;
 
         public void ApplyConfig()
         {
             if (!_ready) return;
             ApplyTheme();
-            Opacity = Clamp(_app.Config.Opacity, 0.25, 1.0);
             Topmost = _app.Config.AlwaysOnTop;
             ApplyClockProperties();
             ApplyClickThrough();
+
+            if (_appliedBlur != _app.Config.BackdropBlur || _appliedExclude != _app.Config.ExcludeFromCapture)
+                RestartBackdrop();
+        }
+
+        private bool _appliedBlur;
+        private bool _appliedExclude;
+
+        /// <summary>(Re)starts the capture-blur backdrop - needed when its options change.</summary>
+        public void RestartBackdrop()
+        {
+            _backdrop?.Dispose();
+            _backdrop = null;
+            BackdropBrush.ImageSource = null;
+            _appliedBlur = _app.Config.BackdropBlur;
+            _appliedExclude = _app.Config.ExcludeFromCapture;
+
+            if (_appliedBlur && _ready)
+            {
+                _backdrop = new BackdropService(this, frame => BackdropBrush.ImageSource = frame, _appliedExclude);
+                _backdrop.Start();
+            }
         }
 
         public void RefreshItem()
         {
+            ApplyFaceImage();
             ApplyClockProperties();
             var tz = TimeZoneCatalog.Resolve(_item.TimeZoneId);
             UpdateDigital(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
             BigClock.InvalidateVisual();
-            MiniClock.InvalidateVisual();
+        }
+
+        private bool HasFaceImage =>
+            !string.IsNullOrWhiteSpace(_item.FaceImage) && System.IO.File.Exists(_item.FaceImage);
+
+        /// <summary>Loads (or clears) the user's custom dial image.</summary>
+        private void ApplyFaceImage()
+        {
+            if (!HasFaceImage)
+            {
+                FaceBrush.ImageSource = null;
+                FaceImageClip.Visibility = Visibility.Collapsed;
+                BigClock.ShowFacePlate = true;
+                return;
+            }
+
+            try
+            {
+                var bi = new BitmapImage();
+                bi.BeginInit();
+                bi.CacheOption = BitmapCacheOption.OnLoad;
+                bi.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                bi.UriSource = new Uri(_item.FaceImage, UriKind.Absolute);
+                bi.EndInit();
+                bi.Freeze();
+
+                FaceBrush.ImageSource = bi;
+                FaceImageClip.Visibility = Visibility.Visible;
+                BigClock.ShowFacePlate = false;
+                BigClock.InvalidateVisual();
+            }
+            catch
+            {
+                FaceBrush.ImageSource = null;
+                FaceImageClip.Visibility = Visibility.Collapsed;
+                BigClock.ShowFacePlate = true;
+            }
+        }
+
+        private void ChangeTimeZone()
+        {
+            var dlg = new CityPickerWindow { Owner = this, Topmost = true };
+            if (dlg.ShowDialog() == true && dlg.Selected != null)
+            {
+                _item.City = dlg.Selected.Name;
+                _item.TimeZoneId = string.IsNullOrEmpty(dlg.Selected.Id)
+                    ? TimeZoneInfo.Local.Id
+                    : dlg.Selected.Id;
+                RefreshItem();
+                _app.Save();
+            }
+        }
+
+        private void PickFaceImage()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择表底图片",
+                Filter = "图片 Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|所有文件 All files|*.*"
+            };
+            if (dlg.ShowDialog(this) == true)
+            {
+                _item.FaceImage = dlg.FileName;
+                ApplyFaceImage();
+                _app.Save();
+            }
+        }
+
+        private void ClearFaceImage()
+        {
+            _item.FaceImage = "";
+            ApplyFaceImage();
+            _app.Save();
         }
 
         private void ApplyClockProperties()
         {
             var accent = ParseColor(_item.Accent, Color.FromRgb(0x7C, 0xC4, 0xFF));
-            Configure(BigClock);
-            Configure(MiniClock);
-
-            void Configure(Controls.AnalogClock c)
-            {
-                c.TimeZoneId = _item.TimeZoneId;
-                c.City = ShortCity(_item.City);
-                c.ShowSecondHand = _item.ShowSeconds;
-                c.SweepSeconds = _app.Config.SmoothSecondHand;
-                c.AccentColor = accent;
-            }
+            BigClock.TimeZoneId = _item.TimeZoneId;
+            BigClock.City = ShortCity(_item.City);
+            BigClock.ShowSecondHand = _item.ShowSeconds;
+            BigClock.SweepSeconds = _app.Config.SmoothSecondHand;
+            BigClock.AccentColor = accent;
         }
 
         private static string ShortCity(string city)
@@ -186,25 +270,32 @@ namespace AuroraClock
             BigClock.Width = size;
             BigClock.Height = size;
 
-            SquareCard.Margin = new Thickness(Math.Round(size * 0.078));
+            double margin = Math.Round(size * 0.078);
+            SquareCard.Margin = new Thickness(margin);
 
-            bool showMini = size >= 185;
-            MiniColumn.Width = showMini ? GridLength.Auto : new GridLength(0);
-            MiniClock.Visibility = showMini ? Visibility.Visible : Visibility.Collapsed;
-            double mini = Math.Round(size * 0.300);
-            MiniClock.Width = mini;
-            MiniClock.Height = mini;
-            MiniClock.Margin = showMini ? new Thickness(0, 0, size * 0.055, 0) : new Thickness(0);
-
-            CityText.FontSize = Math.Round(Math.Max(10, size * 0.072));
-            TimeText.FontSize = Math.Round(Math.Max(19, size * 0.200));
-            SecondsText.FontSize = Math.Round(Math.Max(9.5, size * 0.070));
+            CityText.FontSize = Math.Round(Math.Max(10, size * 0.074));
             DateText.FontSize = Math.Round(Math.Max(9, size * 0.050));
-            SecondsText.Margin = new Thickness(0, -size * 0.036, 0, size * 0.010);
+            SecondsText.FontSize = Math.Round(Math.Max(10, size * 0.082));
+
+            // The big time is the hero of the square card: make it fill the width.
+            double avail = size - margin * 2;
+            TimeText.FontSize = FitFontSize("00:00", avail * 0.99, size * 0.36, size * 0.10);
         }
 
-        private CornerRadius TargetRadius(WidgetShape shape, double size)
-            => new(shape == WidgetShape.Circle ? size / 2 : size * 0.20);
+        private static double FitFontSize(string text, double maxWidth, double maxSize, double minSize)
+        {
+            var tf = new Typeface(new FontFamily("Segoe UI Variable Display, Segoe UI"),
+                FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            double fs = maxSize;
+            while (fs > minSize)
+            {
+                var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    tf, fs, Brushes.White, 1.0);
+                if (ft.Width <= maxWidth) break;
+                fs -= 1;
+            }
+            return fs;
+        }
 
         private void InitShape(WidgetShape shape)
         {
@@ -217,22 +308,18 @@ namespace AuroraClock
             SquareCard.Opacity = circle ? 0 : 1;
         }
 
-        /// <summary>
-        /// Corner radius follows the live size (WPF clamps a huge radius into a perfect circle) and
-        /// the native window region is clipped to the same silhouette so the acrylic blur stays inside.
-        /// </summary>
+        /// <summary>Corner radius tracks the live size; WPF clamps a huge radius into a perfect circle.</summary>
         private void UpdateGeometry()
         {
             double w = ActualWidth > 1 ? ActualWidth : Width;
-            double h = ActualHeight > 1 ? ActualHeight : Height;
             bool circle = _item.Shape == WidgetShape.Circle;
             double radius = circle ? w / 2 : w * 0.20;
 
             var cr = new CornerRadius(circle ? 9999 : radius);
-            Glass.CornerRadius = Sheen.CornerRadius = Rim.CornerRadius = GlowRim.CornerRadius = cr;
-            Bloom.CornerRadius = PassRim.CornerRadius = Noise.CornerRadius = cr;
-
-            AcrylicHelper.ApplyShapeRegion(this, w, h, radius);
+            Glass.CornerRadius = cr;
+            Backdrop.CornerRadius = Tint.CornerRadius = FaceImageClip.CornerRadius = cr;
+            Sheen.CornerRadius = Bloom.CornerRadius = cr;
+            Rim.CornerRadius = GlowRim.CornerRadius = Noise.CornerRadius = cr;
         }
 
         private void SwapContent(WidgetShape shape)
@@ -247,12 +334,12 @@ namespace AuroraClock
         // ------------------------------------------------------------ animation
         public void AnimateIn()
         {
-            Opacity = 0;
+            Glass.Opacity = 0;
             EntranceScale.ScaleX = EntranceScale.ScaleY = 0.80;
             EntranceMove.Y = 22;
 
             var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.7 };
-            BeginAnimation(OpacityProperty, new DoubleAnimation(0, Clamp(_app.Config.Opacity, 0.25, 1.0), TimeSpan.FromMilliseconds(360)));
+            Glass.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(360)));
 
             var sc = new DoubleAnimation(0.80, 1, TimeSpan.FromMilliseconds(420)) { EasingFunction = ease };
             EntranceScale.BeginAnimation(ScaleTransform.ScaleXProperty, sc);
@@ -264,6 +351,7 @@ namespace AuroraClock
 
         private void OnEnter(object sender, MouseEventArgs e)
         {
+            if (_app.Config.ClickThrough) return;
             GlowRim.BeginAnimation(OpacityProperty, new DoubleAnimation(GlowRim.Opacity, 0.85, TimeSpan.FromMilliseconds(180)));
             Rim.BeginAnimation(OpacityProperty, new DoubleAnimation(Rim.Opacity, 1.0, TimeSpan.FromMilliseconds(180)));
         }
@@ -271,6 +359,18 @@ namespace AuroraClock
         private void OnLeave(object sender, MouseEventArgs e)
         {
             GlowRim.BeginAnimation(OpacityProperty, new DoubleAnimation(GlowRim.Opacity, 0.0, TimeSpan.FromMilliseconds(220)));
+        }
+
+        public void ApplyClickThrough()
+        {
+            if (!_ready) return;
+            WindowFx.SetClickThrough(this, _app.Config.ClickThrough);
+
+            if (_app.Config.ClickThrough)
+            {
+                GlowRim.BeginAnimation(OpacityProperty, null);
+                GlowRim.Opacity = 0;
+            }
         }
 
         // --------------------------------------------------------------- render
@@ -282,17 +382,25 @@ namespace AuroraClock
 
             if (now < _radiusTrackUntil) UpdateGeometry();
 
-            bool circle = BigClock.Visibility == Visibility.Visible;
-            if (circle) BigClock.InvalidateVisual(); else MiniClock.InvalidateVisual();
-
             var tz = TimeZoneCatalog.Resolve(_item.TimeZoneId);
             var t = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+
+            bool circle = BigClock.Visibility == Visibility.Visible;
+            if (circle) BigClock.InvalidateVisual();
+            else UpdateSecondsBar(t.Second / 60.0 + t.Millisecond / 60000.0);
+
             if (t.Second != _lastRenderedSecond)
             {
                 _lastRenderedSecond = t.Second;
                 UpdateDigital(t);
-                if (circle) BigClock.InvalidateVisual();
             }
+        }
+
+        private void UpdateSecondsBar(double fraction)
+        {
+            double avail = SecondsTrack.ActualWidth;
+            if (avail <= 0) return;
+            SecondsBar.Width = Math.Max(0, Math.Min(1, fraction)) * avail;
         }
 
         private void UpdateDigital(DateTime t)
@@ -359,7 +467,6 @@ namespace AuroraClock
             _windowStart = new Point(Left, Top);
             CaptureMouse();
             Cursor = Cursors.SizeAll;
-            AcrylicHelper.EnableFastBlur(this, TintColor, AcrylicTint);
             e.Handled = true;
         }
 
@@ -371,6 +478,7 @@ namespace AuroraClock
             double dx = (now.X - _dragStartDevice.X) / dpi.DpiScaleX;
             double dy = (now.Y - _dragStartDevice.Y) / dpi.DpiScaleY;
             SetPosition(_windowStart.X + dx, _windowStart.Y + dy, persist: false, snap: true);
+            _backdrop?.Refresh();
         }
 
         private void OnMouseLeftUp(object sender, MouseButtonEventArgs e)
@@ -379,7 +487,7 @@ namespace AuroraClock
             _dragging = false;
             ReleaseMouseCapture();
             Cursor = Cursors.Arrow;
-            AcrylicHelper.Enable(this, TintColor, AcrylicTint);
+            _backdrop?.Refresh();
             _app.Save();
         }
 
@@ -387,9 +495,8 @@ namespace AuroraClock
         {
             if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
             {
-                double o = Clamp(_app.Config.Opacity + (e.Delta > 0 ? 0.05 : -0.05), 0.25, 1.0);
-                _app.Config.Opacity = o;
-                Opacity = o;
+                _app.Config.GlassTint = Clamp(_app.Config.GlassTint + (e.Delta > 0 ? 0.05 : -0.05), 0, 1);
+                ApplyTheme();
                 _app.Save();
             }
             else
@@ -414,6 +521,7 @@ namespace AuroraClock
                     default: return;
                 }
                 SetPosition(Left + dx, Top + dy, persist: true, snap: false);
+                _backdrop?.Refresh();
                 e.Handled = true;
             }
         }
@@ -445,12 +553,11 @@ namespace AuroraClock
             _item.Shape = shape;
 
             var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
-            double target = Clamp(_app.Config.Opacity, 0.25, 1.0);
 
             var down = new DoubleAnimation(1, 0.90, TimeSpan.FromMilliseconds(130)) { EasingFunction = easeOut };
             EntranceScale.BeginAnimation(ScaleTransform.ScaleXProperty, down);
             EntranceScale.BeginAnimation(ScaleTransform.ScaleYProperty, down);
-            BeginAnimation(OpacityProperty, new DoubleAnimation(Opacity, Math.Max(0.3, target * 0.5), TimeSpan.FromMilliseconds(130)) { EasingFunction = easeOut });
+            Glass.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.45, TimeSpan.FromMilliseconds(130)) { EasingFunction = easeOut });
 
             await Task.Delay(130);
 
@@ -461,10 +568,11 @@ namespace AuroraClock
             { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 } };
             EntranceScale.BeginAnimation(ScaleTransform.ScaleXProperty, up);
             EntranceScale.BeginAnimation(ScaleTransform.ScaleYProperty, up);
-            BeginAnimation(OpacityProperty, new DoubleAnimation(Opacity, target, TimeSpan.FromMilliseconds(220)));
+            Glass.BeginAnimation(OpacityProperty, new DoubleAnimation(0.45, 1, TimeSpan.FromMilliseconds(220)));
 
             if (shape == WidgetShape.Square)
                 UpdateDigital(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneCatalog.Resolve(_item.TimeZoneId)));
+            _backdrop?.Refresh();
             _app.Save();
         }
 
@@ -487,6 +595,13 @@ namespace AuroraClock
 
             menu.Items.Add(Mi("添加时钟…", "\uE710", PickAndAdd));
             menu.Items.Add(Mi("删除此时钟", "\uE74D", () => _app.RemoveClock(_item)));
+
+            menu.Items.Add(new Separator());
+
+            menu.Items.Add(Mi("更改城市 / 时区…", "\uE774", ChangeTimeZone));
+            menu.Items.Add(Mi(HasFaceImage ? "更换表底图片…" : "自定义表底图片…", "\uEB9F", PickFaceImage));
+            if (HasFaceImage)
+                menu.Items.Add(Mi("清除表底图片", "\uE894", ClearFaceImage));
 
             menu.Items.Add(new Separator());
 

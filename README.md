@@ -13,9 +13,11 @@ tray-first control model.
 
 | | |
 |---|---|
-| 🫧 **Real frosted glass** | Windows acrylic blur masked to a circle / rounded square, plus a tiled micro-grain, specular bloom and hairline rim. |
-| ⭕ **Circle & Square** | Toggle the silhouette per clock with a squash‑and‑pop morph animation. |
+| 🫧 **Real frosted glass** | The desktop behind each widget is captured and blurred in-process, then clipped to the exact silhouette — a true circular (or rounded-square) frosted pane, with desaturation, grain, specular sheen and a lit bezel. |
+| ⭕ **Circle & Square** | Circle = analog dial with a deep bezel; Square = full-width digital card whose time auto-fits the card. Switch with a squash-and-pop morph. |
 | 🌍 **Unlimited world clocks** | Every widget has its own city, time zone, size, shape and screen position. |
+| 🏙️ **Per-clock city / time zone** | Change any clock's city or time zone on the spot — right-click the widget → *Change city / time zone*, or use the button in the settings list. |
+| 🖼️ **Custom dial image** | Use any image (PNG / JPG / BMP / GIF / WEBP) as a dial face; bezel, ticks, hands and text stay on top. Clear it any time. |
 | 🕐 **Analog + digital** | Smooth sweeping second hand, live digital readout, date and UTC offset. |
 | 🖱️ **Pointer click‑through** | Let every click fall through to the app behind — perfect for a desktop overlay. |
 | ⌨️ **Global hotkeys** | Show/hide, click‑through, always‑on‑top and settings — from any application. |
@@ -101,7 +103,8 @@ AuroraClock/
 ├─ Models/ClockItem.cs           per-clock model
 ├─ Services/
 │   ├─ AppController.cs          central hub: config, widgets, hotkeys
-│   ├─ AcrylicHelper.cs          SetWindowCompositionAttribute + shaped window region
+│   ├─ AcrylicHelper.cs          glass tint for the settings / picker windows
+│   ├─ BackdropService.cs        capture + blur behind a widget (true shaped frost)
 │   ├─ WindowFx.cs               click-through / no-activate extended styles
 │   ├─ HotkeyManager.cs          RegisterHotKey sink
 │   ├─ AutostartService.cs       HKCU Run entry
@@ -116,10 +119,16 @@ AuroraClock/
 
 ## 🔧 Notes & constraints
 
-- Windows acrylic fills the whole window rectangle, so the widget clips its native window region to
-  the silhouette — that's what keeps the blur inside the circle.
-- Acrylic requires desktop composition (Windows 10/11). On unsupported systems the widget falls back
-  to its translucent tint layer.
+- **Why the glass is self-rendered:** Windows' built-in acrylic backdrop always fills the whole
+  window rectangle and ignores window regions (`SetWindowRgn`) and `DwmEnableBlurBehindWindow`'s blur
+  region, so a circular widget would always show a square of blur behind it. Aurora Clock therefore
+  captures the screen area behind the widget and blurs it itself (`BackdropService`), which is what
+  lets the frost follow a circle exactly — and lets the blur be stronger than the system default.
+- The widget never captures itself (it is marked `WDA_EXCLUDEFROMCAPTURE`). Untick
+  *Show in screenshots* in Settings if you want it to appear in your own screenshots/recordings
+  too — the blur then has a faint self-capture halo.
+- Turning *Live frosted backdrop* off falls back to a flat translucent tint (useful on very slow
+  machines).
 - With click-through enabled the widget no longer receives mouse or keyboard input by design: use the
   tray icon or a hotkey to regain control.
 

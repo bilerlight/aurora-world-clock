@@ -23,7 +23,6 @@ namespace AuroraClock
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            AcrylicHelper.Enable(this, System.Windows.Media.Color.FromRgb(9, 13, 20), 0.55);
             ClockList.ItemsSource = _app.Clocks;
             VersionText.Text = $"Aurora World Clock  v{Version}   ·   .NET {Environment.Version.ToString(3)}   ·   配置目录 %AppData%\\AuroraClock";
             HotkeyText.Text =
@@ -39,6 +38,8 @@ namespace AuroraClock
             SwitchSnap.IsChecked = _app.Config.SnapToEdges;
             SwitchSeconds.IsChecked = _app.Config.ShowSeconds;
             SwitchSmooth.IsChecked = _app.Config.SmoothSecondHand;
+            SwitchBlur.IsChecked = _app.Config.BackdropBlur;
+            SwitchCapture.IsChecked = !_app.Config.ExcludeFromCapture;
             OpacitySlider.Value = Math.Round(_app.Config.Opacity * 100);
             TintSlider.Value = Math.Round(_app.Config.GlassTint * 100);
             _loading = false;
@@ -55,6 +56,8 @@ namespace AuroraClock
             SwitchSnap.IsChecked = _app.Config.SnapToEdges;
             SwitchSeconds.IsChecked = _app.Config.ShowSeconds;
             SwitchSmooth.IsChecked = _app.Config.SmoothSecondHand;
+            SwitchBlur.IsChecked = _app.Config.BackdropBlur;
+            SwitchCapture.IsChecked = !_app.Config.ExcludeFromCapture;
             OpacitySlider.Value = Math.Round(_app.Config.Opacity * 100);
             TintSlider.Value = Math.Round(_app.Config.GlassTint * 100);
             _loading = false;
@@ -67,6 +70,9 @@ namespace AuroraClock
 
         private void UpdateLabels()
         {
+            // These fields are null while InitializeComponent() is still parsing the XAML,
+            // and setting Slider Minimum/Maximum raises ValueChanged at that point.
+            if (OpacityValue == null || TintValue == null) return;
             OpacityValue.Text = $"{OpacitySlider.Value:0}%";
             TintValue.Text = $"{TintSlider.Value:0}%";
         }
@@ -91,6 +97,38 @@ namespace AuroraClock
                 _app.RemoveClock(item);
         }
 
+        private void ChangeZone_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is not ClockItem item) return;
+            var dlg = new CityPickerWindow { Owner = this, Topmost = true };
+            if (dlg.ShowDialog() == true && dlg.Selected != null)
+            {
+                item.City = dlg.Selected.Name;
+                item.TimeZoneId = string.IsNullOrEmpty(dlg.Selected.Id)
+                    ? TimeZoneInfo.Local.Id
+                    : dlg.Selected.Id;
+                _app.Widget(item.Id)?.RefreshItem();
+                _app.Save();
+                ClockList.Items.Refresh();
+            }
+        }
+
+        private void FaceImage_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is not ClockItem item) return;
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择表底图片",
+                Filter = "图片 Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|所有文件 All files|*.*"
+            };
+            if (dlg.ShowDialog(this) == true)
+            {
+                item.FaceImage = dlg.FileName;
+                _app.Widget(item.Id)?.RefreshItem();
+                _app.Save();
+            }
+        }
+
         private void ToggleShape_Click(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is not ClockItem item) return;
@@ -104,13 +142,15 @@ namespace AuroraClock
 
         private void Option_Changed(object sender, RoutedEventArgs e)
         {
-            if (_loading) return;
+            if (!IsLoaded || _loading) return;
 
             _app.Config.AlwaysOnTop = SwitchTop.IsChecked == true;
             _app.Config.SnapToEdges = SwitchSnap.IsChecked == true;
             _app.Config.ShowSeconds = SwitchSeconds.IsChecked == true;
             _app.Config.SmoothSecondHand = SwitchSmooth.IsChecked == true;
             _app.Config.ClickThrough = SwitchPass.IsChecked == true;
+            _app.Config.BackdropBlur = SwitchBlur.IsChecked == true;
+            _app.Config.ExcludeFromCapture = SwitchCapture.IsChecked != true;
 
             bool auto = SwitchAuto.IsChecked == true;
             if (auto != _app.Config.StartWithWindows)
@@ -127,7 +167,7 @@ namespace AuroraClock
 
         private void Opacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_loading) return;
+            if (!IsLoaded || _loading) return;
             _app.Config.Opacity = OpacitySlider.Value / 100.0;
             UpdateLabels();
             _app.ApplyGlobalSettings();
@@ -135,7 +175,7 @@ namespace AuroraClock
 
         private void Tint_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_loading) return;
+            if (!IsLoaded || _loading) return;
             _app.Config.GlassTint = TintSlider.Value / 100.0;
             UpdateLabels();
             _app.ApplyGlobalSettings();

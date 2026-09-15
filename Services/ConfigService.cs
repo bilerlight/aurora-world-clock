@@ -9,6 +9,13 @@ namespace AuroraClock.Services
 {
     public sealed class AppConfig
     {
+        /// <summary>Live frosted backdrop (capture + blur behind the widget).</summary>
+        public bool BackdropBlur { get; set; } = true;
+
+        /// <summary>Keep the widget out of screen captures - hides it from your own screenshots
+        /// too, but gives a slightly cleaner blur (no self-capture feedback).</summary>
+        public bool ExcludeFromCapture { get; set; }
+
         public bool AlwaysOnTop { get; set; } = true;
 
         public bool StartWithWindows { get; set; }
@@ -65,6 +72,10 @@ namespace AuroraClock.Services
                             if (string.IsNullOrWhiteSpace(c.City)) c.City = "Local";
                             if (string.IsNullOrWhiteSpace(c.TimeZoneId)) c.TimeZoneId = TimeZoneInfo.Local.Id;
                         }
+
+                        // Never end up with no widgets at all.
+                        if (cfg.Clocks.Count == 0) cfg.Clocks.Add(DefaultLocalClock());
+
                         return cfg;
                     }
                 }
@@ -76,15 +87,17 @@ namespace AuroraClock.Services
             }
 
             var fresh = new AppConfig();
-            fresh.Clocks.Add(new ClockItem
-            {
-                City = "Local · 本地",
-                TimeZoneId = TimeZoneInfo.Local.Id,
-                Shape = WidgetShape.Circle,
-                Size = 210
-            });
+            fresh.Clocks.Add(DefaultLocalClock());
             return fresh;
         }
+
+        private static ClockItem DefaultLocalClock() => new()
+        {
+            City = "Local · 本地",
+            TimeZoneId = TimeZoneInfo.Local.Id,
+            Shape = WidgetShape.Circle,
+            Size = 210
+        };
 
         public static void Save(AppConfig cfg)
         {

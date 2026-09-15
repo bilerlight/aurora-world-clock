@@ -24,7 +24,6 @@ namespace AuroraClock
             InitializeComponent();
             Loaded += (_, _) =>
             {
-                AcrylicHelper.Enable(this, System.Windows.Media.Color.FromRgb(9, 13, 20), 0.55);
                 Refresh("");
                 SearchBox.Focus();
             };
@@ -48,6 +47,7 @@ namespace AuroraClock
 
         private void SearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
+            if (Placeholder == null || List == null || CountText == null) return;
             Placeholder.Visibility = string.IsNullOrEmpty(SearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
             Refresh(SearchBox.Text);
         }

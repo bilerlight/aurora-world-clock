@@ -22,6 +22,7 @@ namespace AuroraClock.Models
         private bool _showSeconds = true;
         private bool _locked;
         private string _accent = "#7CC4FF";
+        private string _faceImage = "";
 
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
@@ -79,6 +80,13 @@ namespace AuroraClock.Models
             set { if (_accent != value) { _accent = value; OnChanged(); } }
         }
 
+        /// <summary>Optional image used as the dial face (empty = the built-in glass face).</summary>
+        public string FaceImage
+        {
+            get => _faceImage;
+            set { if (_faceImage != value) { _faceImage = value; OnChanged(); } }
+        }
+
         [JsonIgnore]
         public string ShapeLabel => Shape == WidgetShape.Circle ? "圆形 Circle" : "方形 Square";
 
@@ -127,7 +135,8 @@ namespace AuroraClock.Models
             Y = Y,
             ShowSeconds = ShowSeconds,
             Locked = Locked,
-            Accent = Accent
+            Accent = Accent,
+            FaceImage = FaceImage
         };
     }
 }

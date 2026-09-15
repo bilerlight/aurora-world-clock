@@ -40,9 +40,15 @@ namespace AuroraClock.Services
             foreach (var c in Config.Clocks) Clocks.Add(c);
 
             // "--hidden" starts tucked away in the tray (useful for a manual autostart entry).
+            // "--settings" opens the settings window straight away.
+            bool wantSettings = false;
             foreach (var arg in Environment.GetCommandLineArgs())
+            {
                 if (string.Equals(arg, "--hidden", StringComparison.OrdinalIgnoreCase))
                     Config.Hidden = true;
+                else if (string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase))
+                    wantSettings = true;
+            }
 
             // keep registry in sync with the saved preference
             if (Config.StartWithWindows != AutostartService.IsEnabled())
@@ -65,6 +71,8 @@ namespace AuroraClock.Services
 
             // Write the config on first run so it is discoverable/editable straight away.
             Save();
+
+            if (wantSettings) ShowSettings();
         }
 
         // Labels reflect the key that actually got registered (some may be taken by other apps).

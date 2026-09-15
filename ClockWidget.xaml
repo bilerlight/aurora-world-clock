@@ -16,7 +16,7 @@
         TextOptions.TextRenderingMode="ClearType">
 
     <Grid x:Name="Root" Background="Transparent">
-        <Border x:Name="Glass" CornerRadius="105" Background="#B80C1119"
+        <Border x:Name="Glass" CornerRadius="105" Background="Transparent"
                 RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform>
                 <TransformGroup>
@@ -26,68 +26,101 @@
             </Border.RenderTransform>
 
             <Grid>
-                <!-- Analog face (circle mode) -->
+                <!-- 1. the real, shaped frosted backdrop (captured + blurred behind the widget) -->
+                <Border x:Name="Backdrop" CornerRadius="105" IsHitTestVisible="False">
+                    <Border.Background>
+                        <ImageBrush x:Name="BackdropBrush" Stretch="Fill" />
+                    </Border.Background>
+                </Border>
+
+                <!-- 2. glass tint for contrast -->
+                <Border x:Name="Tint" CornerRadius="105" IsHitTestVisible="False" Background="#8C0A0F18" />
+
+                <!-- 2b. optional custom dial image -->
+                <Border x:Name="FaceImageClip" CornerRadius="105" IsHitTestVisible="False"
+                        Visibility="Collapsed">
+                    <Border.Background>
+                        <ImageBrush x:Name="FaceBrush" Stretch="UniformToFill"
+                                    AlignmentX="Center" AlignmentY="Center" />
+                    </Border.Background>
+                </Border>
+
+                <!-- 3. clock content -->
                 <ctl:AnalogClock x:Name="BigClock" />
 
-                <!-- Digital card (square mode) -->
                 <Grid x:Name="SquareCard" Opacity="0" Visibility="Collapsed" Margin="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="MiniColumn" Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <ctl:AnalogClock x:Name="MiniClock" Grid.Column="0"
-                                     Width="66" Height="66" VerticalAlignment="Center"
-                                     ShowDigital="False" ShowCity="False" ShowDate="False"
-                                     ShowNumbers="False" ShowSecondHand="False" />
-
-                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <!-- city left, date right -->
+                    <Grid Grid.Row="0">
                         <TextBlock x:Name="CityText"
+                                   HorizontalAlignment="Left"
                                    Foreground="#F2F6FC"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="DateText"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="#9BB0C4E0"
+                                   FontFamily="Segoe UI Variable Text, Segoe UI"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+
+                    <!-- the hero: the big time fills the width -->
+                    <Grid Grid.Row="1">
                         <TextBlock x:Name="TimeText"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
                                    Foreground="#F2F6FC"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"
                                    FontWeight="SemiBold" />
+                    </Grid>
+
+                    <!-- seconds readout + full-width progress -->
+                    <StackPanel Grid.Row="2">
                         <TextBlock x:Name="SecondsText"
+                                   HorizontalAlignment="Left"
                                    Foreground="{StaticResource AccentBrush}"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"
                                    FontWeight="SemiBold" />
-                        <TextBlock x:Name="DateText"
-                                   Foreground="#9BB0C4E0"
-                                   FontFamily="Segoe UI Variable Text, Segoe UI" />
+                        <Grid Height="5" Margin="0,4,0,0">
+                            <Border x:Name="SecondsTrack" CornerRadius="2.5" Background="#12FFFFFF" />
+                            <Border x:Name="SecondsBar" CornerRadius="2.5" HorizontalAlignment="Left"
+                                    Background="{StaticResource AccentBrush}" Width="0" />
+                        </Grid>
                     </StackPanel>
                 </Grid>
 
-                <!-- Glass sheen -->
+                <!-- 4. glass sheen + diffuse bloom -->
                 <Border x:Name="Sheen" CornerRadius="105" IsHitTestVisible="False">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0.35,1">
-                            <GradientStop Color="#2EFFFFFF" Offset="0" />
+                            <GradientStop Color="#30FFFFFF" Offset="0" />
                             <GradientStop Color="#0CFFFFFF" Offset="0.40" />
                             <GradientStop Color="#00000000" Offset="1" />
                         </LinearGradientBrush>
                     </Border.Background>
                 </Border>
 
-                <!-- Diffuse light bloom, upper-left -->
                 <Border x:Name="Bloom" CornerRadius="105" IsHitTestVisible="False">
                     <Border.Background>
                         <RadialGradientBrush GradientOrigin="0.30,0.22" Center="0.30,0.22"
                                              RadiusX="0.65" RadiusY="0.65">
-                            <GradientStop Color="#1FFFFFFF" Offset="0" />
+                            <GradientStop Color="#24FFFFFF" Offset="0" />
                             <GradientStop Color="#00000000" Offset="1" />
                         </RadialGradientBrush>
                     </Border.Background>
                 </Border>
 
-                <!-- Inner hairline rim -->
+                <!-- 5. rim + hover / click-through rings -->
                 <Border x:Name="Rim" CornerRadius="105" IsHitTestVisible="False"
                         BorderThickness="1" BorderBrush="#26FFFFFF" />
 
-                <!-- Accent glow rim (hover) -->
                 <Border x:Name="GlowRim" CornerRadius="105" IsHitTestVisible="False"
                         BorderThickness="1.6" Opacity="0">
                     <Border.BorderBrush>
@@ -95,16 +128,11 @@
                     </Border.BorderBrush>
                 </Border>
 
-                <!-- Amber rim = click-through active -->
                 <Border x:Name="PassRim" CornerRadius="105" IsHitTestVisible="False"
-                        BorderThickness="1.6" Opacity="0">
-                    <Border.BorderBrush>
-                        <SolidColorBrush Color="#FFFFC46B" />
-                    </Border.BorderBrush>
-                </Border>
+                        BorderThickness="1.6" Opacity="0" Visibility="Collapsed" />
 
-                <!-- Frosted grain -->
-                <Border x:Name="Noise" CornerRadius="105" IsHitTestVisible="False" Opacity="0" />
+                <!-- 6. frosted grain -->
+                <Border x:Name="Noise" CornerRadius="105" IsHitTestVisible="False" Opacity="0.55" />
             </Grid>
         </Border>
     </Grid>

@@ -89,6 +89,8 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <Border Grid.Column="0" Width="38" Height="38" CornerRadius="11"
@@ -109,9 +111,13 @@
                                             </TextBlock>
                                         </StackPanel>
 
-                                        <Button Grid.Column="2" Content="{Binding ShapeShort}" Style="{StaticResource GhostButton}"
-                                                Padding="10,6" FontSize="12" Margin="8,0" Click="ToggleShape_Click" />
-                                        <Button Grid.Column="3" Content="&#xE74D;" Style="{StaticResource IconButton}"
+                                        <Button Grid.Column="2" Content="&#xE774;" Style="{StaticResource IconButton}"
+                                                Click="ChangeZone_Click" ToolTip="更改城市 / 时区" Margin="0,0,6,0" />
+                                        <Button Grid.Column="3" Content="&#xEB9F;" Style="{StaticResource IconButton}"
+                                                Click="FaceImage_Click" ToolTip="自定义表底图片" Margin="0,0,6,0" />
+                                        <Button Grid.Column="4" Content="{Binding ShapeShort}" Style="{StaticResource GhostButton}"
+                                                Padding="10,6" FontSize="12" Margin="2,0" Click="ToggleShape_Click" />
+                                        <Button Grid.Column="5" Content="&#xE74D;" Style="{StaticResource IconButton}"
                                                 Foreground="{StaticResource DangerBrush}" Click="Remove_Click"
                                                 ToolTip="移除此时钟" />
                                     </Grid>
@@ -140,8 +146,12 @@
                                     Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
                                     ValueChanged="Tint_Changed" />
 
+                            <CheckBox x:Name="SwitchBlur" Style="{StaticResource ToggleSwitch}"
+                                      Content="实时毛玻璃  Live frosted backdrop" Margin="0,14,0,0" Click="Option_Changed" />
+                            <CheckBox x:Name="SwitchCapture" Style="{StaticResource ToggleSwitch}"
+                                      Content="在截图/录屏中显示  Show in screenshots" Margin="0,12,0,0" Click="Option_Changed" />
                             <CheckBox x:Name="SwitchSeconds" Style="{StaticResource ToggleSwitch}"
-                                      Content="显示秒针  Show seconds" Margin="0,14,0,0" Click="Option_Changed" />
+                                      Content="显示秒针  Show seconds" Margin="0,12,0,0" Click="Option_Changed" />
                             <CheckBox x:Name="SwitchSmooth" Style="{StaticResource ToggleSwitch}"
                                       Content="平滑秒针  Smooth sweeping hand" Margin="0,12,0,0" Click="Option_Changed" />
                         </StackPanel>
