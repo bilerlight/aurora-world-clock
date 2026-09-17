@@ -87,6 +87,15 @@ namespace AuroraClock
             _app.Save();
         }
 
+        private void DockPeek_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!IsLoaded || _loading) return;
+            _app.Config.DockHidePeek = DockPeekSlider.Value;
+            UpdateLabels();
+            _app.Save();
+            _app.Dock?.ApplyAutoHide();
+        }
+
         public void Refresh()
         {
             if (!IsLoaded) return;
@@ -119,6 +128,7 @@ namespace AuroraClock
             SwitchBump.IsChecked = cfg.DockBumpToReveal;
             DockWidthSlider.Value = Math.Round(cfg.DockWidth);
             DockDelaySlider.Value = Math.Round(Math.Clamp(cfg.DockAutoHideDelay, 0.5, 15) * 2) / 2.0;
+            DockPeekSlider.Value = Math.Round(Math.Clamp(cfg.DockHidePeek, 0, 24));
             UpdateEdgeButtons();
             _loading = false;
 
@@ -135,7 +145,7 @@ namespace AuroraClock
             // and setting Slider Minimum/Maximum raises ValueChanged at that point.
             if (OpacityValue == null || TintValue == null) return;
             if (AlphaValue == null || RadiusValue == null || DockWidthValue == null) return;
-            if (DockDelayValue == null) return;
+            if (DockDelayValue == null || DockPeekValue == null) return;
 
             OpacityValue.Text = $"{OpacitySlider.Value:0}%";
             TintValue.Text = $"{TintSlider.Value:0}%";
@@ -143,6 +153,7 @@ namespace AuroraClock
             RadiusValue.Text = $"{RadiusSlider.Value:0}";
             DockWidthValue.Text = $"{DockWidthSlider.Value:0} px";
             DockDelayValue.Text = $"{DockDelaySlider.Value:0.#} 秒";
+            DockPeekValue.Text = DockPeekSlider.Value < 0.5 ? "完全隐藏" : $"{DockPeekSlider.Value:0} px";
         }
 
         // ---------------------------------------------------------------- swatches

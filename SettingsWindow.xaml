@@ -149,6 +149,14 @@
                                     Minimum="0.5" Maximum="15" TickFrequency="0.5"
                                     IsSnapToTickEnabled="True" ValueChanged="DockDelay_Changed" />
 
+                            <Grid Margin="0,12,0,6">
+                                <TextBlock Text="隐藏后预留  Hidden peek（0 = 完全隐藏）" Style="{StaticResource RowLabel}" />
+                                <TextBlock x:Name="DockPeekValue" Style="{StaticResource RowValue}" />
+                            </Grid>
+                            <Slider x:Name="DockPeekSlider" Style="{StaticResource GlassSlider}"
+                                    Minimum="0" Maximum="24" TickFrequency="1"
+                                    IsSnapToTickEnabled="True" ValueChanged="DockPeek_Changed" />
+
                             <TextBlock Text="停靠位置  Dock edge" Style="{StaticResource RowLabel}"
                                        Margin="0,12,0,6" />
                             <StackPanel Orientation="Horizontal">

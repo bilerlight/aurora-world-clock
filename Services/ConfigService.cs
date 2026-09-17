@@ -91,6 +91,12 @@ namespace AuroraClock.Services
         /// <summary>Reveal the dock when the pointer bumps the screen edge it hides behind.</summary>
         public bool DockBumpToReveal { get; set; } = true;
 
+        /// <summary>
+        /// Pixels of the dock left on screen while it is hidden. 0 = hidden completely
+        /// (the edge-bump watcher still brings it back).
+        /// </summary>
+        public double DockHidePeek { get; set; }
+
         /// <summary>Ordered section ids: clock, launcher, usage, todo, note.</summary>
         public List<string> DockSections { get; set; } = new() { "clock", "launcher", "usage", "todo", "note" };
 

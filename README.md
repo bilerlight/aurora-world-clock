@@ -19,7 +19,7 @@ sticky notes — with flat ink outlines, clean highlights and a real frosted bac
 |---|---|
 | 🎨 **Cel-shaded & highly transparent** | Flat fills, 2 px ink outlines, hard "sticker" shadows. Panel transparency, corner radius, outline and shadow are all yours to tune, with six ready palettes (雪青 / 薄荷 / 奶油 / 樱粉 / 天蓝 / 墨夜) and eight accent colours. |
 | 📐 **Docks to any edge** | Right · Left · Top · Bottom — drag the header and it snaps to the nearest one. Top / bottom docking re-flows the cards sideways. |
-| 🫥 **Auto-hide + edge bump** | Wait N seconds (0.5 – 15 s) after the pointer leaves and the box slides away; bump the screen edge it hides behind and it slides back. It never hides while your pointer is on it or you are typing in it. |
+| 🫥 **Auto-hide + edge bump** | Wait N seconds (0.5 – 15 s) after the pointer leaves and the box slides away **completely** — the bump watcher brings it back when the mouse hits the screen edge, so no sliver has to stay visible (or leave 1 – 24 px on screen if you prefer a visible tab). It never hides while your pointer is on it or you are typing in it. |
 | ↔️ **Resizable** | Drag the inner edge to change the box's thickness; drag the header along the edge to slide it. |
 | 🧩 **Section layout** | Clocks, launchers, usage, todos and notes — each can be shown or hidden and reordered. |
 | 📌 **Collapse** | Shrink it to a small tab when you want the screen back. |

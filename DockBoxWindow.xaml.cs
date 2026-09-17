@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -23,8 +25,8 @@ namespace AuroraClock
     {
         private enum Edge { Left, Top, Right, Bottom }
 
-        /// <summary>How many pixels stay on screen while the dock is hidden.</summary>
-        private const double Sliver = 9;
+        /// <summary>How many pixels stay on screen while the dock is hidden (0 = fully hidden).</summary>
+        private double Peek => Math.Clamp(_app.Config.DockHidePeek, 0, 30);
 
         private const double EdgePad = 10;
 
@@ -217,18 +219,77 @@ namespace AuroraClock
             return span;
         }
 
-        /// <summary>The off-screen coordinate the dock retreats to (a sliver stays visible).</summary>
+        /// <summary>The off-screen coordinate the dock retreats to.</summary>
         private double HiddenCoordinate()
         {
-            var wa = SystemParameters.WorkArea;
+            var mon = MonitorBounds();
             var b = ShownBounds();
+            double peek = Math.Clamp(_app.Config.DockHidePeek, 0, 30);
+
             return CurrentEdge switch
             {
-                Edge.Left => wa.Left - b.Width + Sliver,
-                Edge.Right => wa.Right - Sliver,
-                Edge.Top => wa.Top - b.Height + Sliver,
-                _ => wa.Bottom - Sliver
+                Edge.Left => mon.Left - b.Width + peek,
+                Edge.Right => mon.Right - peek,
+                Edge.Top => mon.Top - b.Height + peek,
+                _ => mon.Bottom - peek
             };
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MonitorInfo
+        {
+            public int Size;
+            public NativeRect Monitor;
+            public NativeRect Work;
+            public int Flags;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
+        private const uint MonitorDefaultToNearest = 2;
+
+        /// <summary>
+        /// The full bounds of the monitor the dock is on, in DIPs. Hiding uses the monitor rather
+        /// than the work area, so a bottom-docked box does not park itself on top of the taskbar.
+        /// </summary>
+        private Rect MonitorBounds()
+        {
+            try
+            {
+                var handle = new WindowInteropHelper(this).Handle;
+                if (handle != IntPtr.Zero)
+                {
+                    var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+                    if (GetMonitorInfo(MonitorFromWindow(handle, MonitorDefaultToNearest), ref info))
+                    {
+                        var dpi = VisualTreeHelper.GetDpi(this);
+                        double left = info.Monitor.Left / dpi.DpiScaleX;
+                        double top = info.Monitor.Top / dpi.DpiScaleY;
+                        double right = info.Monitor.Right / dpi.DpiScaleX;
+                        double bottom = info.Monitor.Bottom / dpi.DpiScaleY;
+                        return new Rect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+                    }
+                }
+            }
+            catch
+            {
+                // fall through to the primary screen
+            }
+
+            return new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
 
         /// <summary>Sizes, positions and orients the dock for its current edge.</summary>
