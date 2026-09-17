@@ -55,5 +55,45 @@ namespace AuroraClock.Services
             _cached = (Icon)tmp.Clone();
             return _cached;
         }
+
+        private static readonly System.Collections.Generic.Dictionary<string, System.Windows.Media.ImageSource?> IconCache = new();
+
+        /// <summary>
+        /// Pulls the real shell icon out of an executable / shortcut / document so launcher tiles
+        /// look like the ones on the desktop. Returns null when the file cannot provide one.
+        /// </summary>
+        public static System.Windows.Media.ImageSource? FileIcon(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return null;
+
+            var key = path!.Trim().Trim('"');
+            if (IconCache.TryGetValue(key, out var cached)) return cached;
+
+            System.Windows.Media.ImageSource? result = null;
+            try
+            {
+                var target = Environment.ExpandEnvironmentVariables(key);
+                if (System.IO.File.Exists(target))
+                {
+                    using var ico = Icon.ExtractAssociatedIcon(target);
+                    if (ico != null)
+                    {
+                        var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(
+                            ico.Handle,
+                            System.Windows.Int32Rect.Empty,
+                            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                        src.Freeze();
+                        result = src;
+                    }
+                }
+            }
+            catch
+            {
+                // a folder, a shell alias such as "code", or a broken path - the dock falls back to a letter chip
+            }
+
+            IconCache[key] = result;
+            return result;
+        }
     }
 }

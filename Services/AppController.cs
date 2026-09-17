@@ -19,6 +19,7 @@ namespace AuroraClock.Services
         private SettingsWindow? _settings;
         private DashboardWindow? _dashboard;
         private UsageWidget? _usageWidget;
+        private DockBoxWindow? _dock;
         private ReminderService? _reminders;
         private bool _shuttingDown;
 
@@ -40,6 +41,11 @@ namespace AuroraClock.Services
         public void Initialize()
         {
             Config = ConfigService.Load();
+
+            // the palette must be in place before the first window is built
+            ThemeService.Use(Config.Theme);
+            ThemeService.Apply();
+
             Clocks.Clear();
             foreach (var c in Config.Clocks) Clocks.Add(c);
 
@@ -71,12 +77,12 @@ namespace AuroraClock.Services
             LabelClickThrough = Bind(HotkeyManager.IdClickThrough, "P", "O", "U", "K");
             LabelAlwaysOnTop = Bind(HotkeyManager.IdAlwaysOnTop, "T", "Y", "G");
             LabelSettings = Bind(HotkeyManager.IdSettings, "S", "I", "W");
+            LabelDock = Bind(HotkeyManager.IdDock, "B", "J", "N");
 
             _tray = new TrayIcon(this);
             _tray.Show();
 
             foreach (var item in Clocks) OpenWidget(item);
-
             if (Config.ClickThrough) ApplyClickThrough();
 
             // reminders / notes / usage
@@ -86,6 +92,7 @@ namespace AuroraClock.Services
 
             foreach (var n in Config.Notes) ShowNoteWindow(n);
             SyncUsageWidget();
+            SyncDock();
 
             // Write the config on first run so it is discoverable/editable straight away.
             Save();
@@ -105,6 +112,7 @@ namespace AuroraClock.Services
         public string LabelClickThrough { get; private set; } = "Ctrl+Alt+P";
         public string LabelAlwaysOnTop { get; private set; } = "Ctrl+Alt+T";
         public string LabelSettings { get; private set; } = "Ctrl+Alt+S";
+        public string LabelDock { get; private set; } = "Ctrl+Alt+B";
 
         private string Bind(int id, params string[] candidates)
         {
@@ -126,6 +134,7 @@ namespace AuroraClock.Services
                 case HotkeyManager.IdToggleVisible: ToggleVisible(); break;
                 case HotkeyManager.IdSettings: ShowSettings(); break;
                 case HotkeyManager.IdAlwaysOnTop: ToggleAlwaysOnTop(); break;
+                case HotkeyManager.IdDock: ToggleDock(); break;
             }
         }
 
@@ -163,6 +172,30 @@ namespace AuroraClock.Services
         {
             Config.Hidden = true;
             foreach (var w in _widgets.Values) w.Hide();
+            _dock?.Hide();
+            Save();
+            _tray?.Sync();
+            _settings?.Refresh();
+        }
+
+        /// <summary>
+        /// The floating dials are optional: the dock already shows every clock. Turning them on
+        /// opens one window per city, turning them off closes them again.
+        /// </summary>
+        public void ToggleFloatingClocks()
+        {
+            Config.ShowFloatingClocks = !Config.ShowFloatingClocks;
+
+            if (Config.ShowFloatingClocks)
+            {
+                foreach (var item in Clocks) OpenWidget(item);
+            }
+            else
+            {
+                foreach (var w in _widgets.Values.ToList()) w.Close();
+                _widgets.Clear();
+            }
+
             Save();
             _tray?.Sync();
             _settings?.Refresh();
@@ -251,8 +284,78 @@ namespace AuroraClock.Services
             }
         }
 
-        public void Quit()
+        // ------------------------------------------------------------------ dock
+        /// <summary>The right-hand global box. Created lazily and kept alive while enabled.</summary>
+        public void SyncDock()
         {
+            if (Config.DockEnabled)
+            {
+                if (_dock == null)
+                {
+                    _dock = new DockBoxWindow(this);
+                    _dock.Closed += (_, _) => _dock = null;
+                    _dock.Show();
+                }
+                else
+                {
+                    _dock.Show();
+                }
+                _dock.Topmost = Config.AlwaysOnTop;
+                return;
+            }
+
+            _dock?.Close();
+            _dock = null;
+        }
+
+        public void ToggleDock()
+        {
+            Config.DockEnabled = !Config.DockEnabled;
+            SyncDock();
+            Save();
+            _tray?.Sync();
+            _settings?.Refresh();
+        }
+
+        public DockBoxWindow? Dock => _dock;
+
+        /// <summary>Refreshes the tray check marks (used by the settings window).</summary>
+        public void SyncTray() => _tray?.Sync();
+
+        /// <summary>Opens the launcher editor for a brand new tile.</summary>
+        public void AddLauncherInteractive()
+        {
+            var item = new Models.LauncherItem { Kind = Models.LauncherKind.App };
+            var dlg = new LauncherEditWindow(item) { Topmost = Config.AlwaysOnTop };
+            if (_dock != null && _dock.IsVisible) dlg.Owner = _dock;
+
+            if (dlg.ShowDialog() != true) return;
+
+            Config.Launchers ??= new List<Models.LauncherItem>();
+            Config.Launchers.Add(item);
+            Save();
+            _dock?.Reload();
+        }
+
+        /// <summary>Re-applies the palette after the user edited it in Settings.</summary>
+        public void ApplyTheme()
+        {
+            ThemeService.Use(Config.Theme);
+            ThemeService.Apply();
+
+            foreach (var w in _widgets.Values) w.ApplyConfig();
+
+            if (_dock != null)
+            {
+                _dock.ApplyLook();
+                _dock.Reload();
+            }
+
+            _usageWidget?.ApplyLook();
+            Save();
+        }
+
+        public void Quit()        {
             Save();
             _shuttingDown = true;
             Application.Current?.Shutdown();
@@ -267,6 +370,9 @@ namespace AuroraClock.Services
         // -------------------------------------------------------------- widgets
         public void OpenWidget(ClockItem item)
         {
+            // with the dock box in place the floating dials are opt-in
+            if (!Config.ShowFloatingClocks) return;
+
             if (_widgets.TryGetValue(item.Id, out var existing))
             {
                 existing.Show();
@@ -341,6 +447,7 @@ namespace AuroraClock.Services
             Config.Hidden = false;
             foreach (var item in Clocks) if (!_widgets.ContainsKey(item.Id)) OpenWidget(item);
             foreach (var w in _widgets.Values) { w.Show(); }
+            SyncDock();
             Save();
             _tray?.Sync();
             _settings?.Refresh();

@@ -29,6 +29,12 @@ namespace AuroraClock.Services
 
         public bool ShowSeconds { get; set; } = true;
 
+        /// <summary>
+        /// Standalone floating clock widgets. Off by default: the dock box shows the clocks, so the
+        /// free-floating dials are only for people who want them on top of everything.
+        /// </summary>
+        public bool ShowFloatingClocks { get; set; }
+
         public bool SmoothSecondHand { get; set; } = true;
 
         public bool SnapToEdges { get; set; } = true;
@@ -51,6 +57,47 @@ namespace AuroraClock.Services
         public bool ShowUsageWidget { get; set; } = true;
         public double UsageX { get; set; } = double.NaN;
         public double UsageY { get; set; } = double.NaN;
+
+        // ---- right-hand dock box ------------------------------------------
+        public bool DockEnabled { get; set; } = true;
+
+        public bool DockFullHeight { get; set; } = true;
+
+        public bool DockAutoHide { get; set; }
+
+        public double DockWidth { get; set; } = 344;
+
+        public double DockX { get; set; } = double.NaN;
+
+        public double DockY { get; set; } = double.NaN;
+
+        public double DockOpacity { get; set; } = 1.0;
+
+        /// <summary>Frost the screen behind the dock (capture + blur).</summary>
+        public bool FrostOnDock { get; set; } = true;
+
+        /// <summary>Which screen edge the dock sticks to: Right, Left, Top, Bottom.</summary>
+        public string DockEdge { get; set; } = "Right";
+
+        /// <summary>Thickness when docked to the top or bottom edge.</summary>
+        public double DockHeight { get; set; } = 300;
+
+        /// <summary>Length along the docked edge when not filling it. NaN = pick a sensible one.</summary>
+        public double DockSpan { get; set; } = double.NaN;
+
+        /// <summary>Seconds to wait after the pointer leaves before sliding away.</summary>
+        public double DockAutoHideDelay { get; set; } = 2.5;
+
+        /// <summary>Reveal the dock when the pointer bumps the screen edge it hides behind.</summary>
+        public bool DockBumpToReveal { get; set; } = true;
+
+        /// <summary>Ordered section ids: clock, launcher, usage, todo, note.</summary>
+        public List<string> DockSections { get; set; } = new() { "clock", "launcher", "usage", "todo", "note" };
+
+        public List<LauncherItem> Launchers { get; set; } = new();
+
+        // ---- look ---------------------------------------------------------
+        public ThemePalette Theme { get; set; } = new();
     }
 
     public static class ConfigService

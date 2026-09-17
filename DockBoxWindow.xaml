@@ -1,0 +1,280 @@
+<Window x:Class="AuroraClock.DockBoxWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Aurora Dock"
+        Width="344" Height="720"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="True"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Grid x:Name="Root" Background="Transparent">
+
+        <!-- the left edge doubles as a width grip -->
+        <Border x:Name="GripLeft" Width="8" HorizontalAlignment="Left" Cursor="SizeWE"
+                Background="Transparent" />
+
+        <Border x:Name="Glass" Margin="6,0,0,0"
+                CornerRadius="{DynamicResource Cel.CornerRadius}"
+                Background="Transparent">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="SlideTransform" />
+            </Border.RenderTransform>
+            <Grid ClipToBounds="True">
+                <Border x:Name="ClipHost" CornerRadius="{DynamicResource Cel.CornerRadius}">
+                    <Grid>
+                        <!-- 1. frosted capture behind the dock -->
+                        <Border x:Name="Backdrop" IsHitTestVisible="False"
+                                CornerRadius="{DynamicResource Cel.CornerRadius}">
+                            <Border.Background>
+                                <ImageBrush x:Name="BackdropBrush" Stretch="Fill" />
+                            </Border.Background>
+                        </Border>
+
+                        <!-- 2. cel panel fill (high transparency) -->
+                        <Border x:Name="Tint" IsHitTestVisible="False"
+                                CornerRadius="{DynamicResource Cel.CornerRadius}"
+                                Background="{DynamicResource Cel.PanelBrush}" />
+
+                        <!-- 3. flat top highlight band: the cel shade -->
+                        <Border x:Name="Shade" IsHitTestVisible="False"
+                                CornerRadius="{DynamicResource Cel.CornerRadius}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#B3FFFFFF" Offset="0" />
+                                    <GradientStop Color="#00FFFFFF" Offset="0.10" />
+                                    <GradientStop Color="#00FFFFFF" Offset="0.88" />
+                                    <GradientStop Color="#14FFFFFF" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- 4. ink line -->
+                        <Border x:Name="InkLine" IsHitTestVisible="False"
+                                CornerRadius="{DynamicResource Cel.CornerRadius}"
+                                BorderThickness="{DynamicResource Cel.EdgeThickness}"
+                                BorderBrush="{DynamicResource Cel.EdgeBrush}" />
+
+                        <!-- 5. content -->
+                        <DockPanel Margin="16,14,14,12">
+
+                            <!-- ============ header ============ -->
+                            <Grid DockPanel.Dock="Top" x:Name="HeaderBar" Background="Transparent"
+                                  Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="26" Height="26" CornerRadius="9"
+                                            Background="{DynamicResource Cel.AccentBrush}" Margin="0,0,9,0">
+                                        <TextBlock Text="&#xE787;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="13" Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="AURORA BOX" FontSize="12.5" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Cel.TextBrush}"
+                                                   FontFamily="{StaticResource DisplayFont}" />
+                                        <TextBlock x:Name="HeaderSub" FontSize="10"
+                                                   Foreground="{DynamicResource Cel.MutedBrush}"
+                                                   FontFamily="{StaticResource UiFont}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <Button x:Name="AddMenuBtn" Style="{StaticResource CelIconButton}"
+                                            Content="&#xE710;" ToolTip="添加启动项 / 命令" />
+                                    <Button x:Name="DockSettingsBtn" Style="{StaticResource CelIconButton}"
+                                            Content="&#xE713;" ToolTip="设置" />
+                                    <Button x:Name="CollapseBtn" Style="{StaticResource CelIconButton}"
+                                            Content="&#xE76B;" ToolTip="折叠为小条" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ============ footer ============ -->
+                            <Border DockPanel.Dock="Bottom" x:Name="FooterBar" Margin="0,10,0,0">
+                                <TextBlock x:Name="FooterText" FontSize="10"
+                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                           FontFamily="{StaticResource UiFont}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Border>
+
+                            <!-- ============ scrolling sections ============ -->
+                            <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="0,0,6,0">
+                                <StackPanel x:Name="Sections">
+
+                                    <!-- clock -->
+                                    <Border x:Name="ClockCard" Style="{StaticResource CelCard}" Tag="clock">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="世界时钟" FontSize="12.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource Cel.TextBrush}"
+                                                           FontFamily="{StaticResource DisplayFont}" />
+                                                <TextBlock x:Name="ZoneText" HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center" FontSize="10"
+                                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                                           FontFamily="{StaticResource UiFont}" />
+                                            </Grid>
+
+                                            <TextBlock x:Name="HeroTime" Margin="0,6,0,0" FontSize="42"
+                                                       FontWeight="SemiBold" LineHeight="46"
+                                                       Foreground="{DynamicResource Cel.TextBrush}"
+                                                       FontFamily="{StaticResource DisplayFont}" />
+
+                                            <TextBlock x:Name="HeroDate" FontSize="11"
+                                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                                       FontFamily="{StaticResource UiFont}" />
+
+                                            <Grid Height="6" Margin="0,8,0,0">
+                                                <Border x:Name="SecTrack" CornerRadius="3"
+                                                        Background="{DynamicResource Cel.ItemBrush}" />
+                                                <Border x:Name="SecBar" CornerRadius="3" Width="0"
+                                                        HorizontalAlignment="Left"
+                                                        Background="{DynamicResource Cel.AccentBrush}" />
+                                            </Grid>
+
+                                            <WrapPanel x:Name="DialHost" Margin="0,12,0,0" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- launchers -->
+                                    <Border x:Name="LaunchCard" Style="{StaticResource CelCard}" Tag="launcher">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="快速启动" FontSize="12.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource Cel.TextBrush}"
+                                                           FontFamily="{StaticResource DisplayFont}" />
+                                                <TextBlock x:Name="LaunchHint" HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center" FontSize="10"
+                                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                                           FontFamily="{StaticResource UiFont}" />
+                                            </Grid>
+
+                                            <WrapPanel x:Name="TileHost" Margin="0,10,0,0" />
+
+                                            <TextBlock x:Name="LaunchEmpty"
+                                                       Text="还没有启动项。点右上角 + 添加程序、文件夹，或一条 cmd 命令 + 工作目录。"
+                                                       Margin="0,10,0,0" TextWrapping="Wrap" FontSize="11"
+                                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                                       FontFamily="{StaticResource UiFont}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- usage -->
+                                    <Border x:Name="UsageCard" Style="{StaticResource CelCard}" Tag="usage">
+                                        <StackPanel>
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse x:Name="LiveDot" Width="8" Height="8"
+                                                             Fill="{DynamicResource Cel.Accent2Brush}"
+                                                             VerticalAlignment="Center" Margin="0,0,7,0" />
+                                                    <TextBlock Text="CC Switch 用量" FontSize="12.5" FontWeight="Bold"
+                                                               Foreground="{DynamicResource Cel.TextBrush}"
+                                                               FontFamily="{StaticResource DisplayFont}" />
+                                                </StackPanel>
+                                                <TextBlock x:Name="UsageUpdated" HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center" FontSize="10"
+                                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                                           FontFamily="{StaticResource UiFont}" />
+                                            </Grid>
+
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                <TextBlock x:Name="UsageCost" Text="$0.00" FontSize="30"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Cel.TextBrush}"
+                                                           FontFamily="{StaticResource DisplayFont}" />
+                                                <TextBlock x:Name="UsageReqs" FontSize="11" Margin="8,0,0,6"
+                                                           VerticalAlignment="Bottom"
+                                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                                           FontFamily="{StaticResource UiFont}" />
+                                            </StackPanel>
+
+                                            <TextBlock x:Name="UsageTokens" FontSize="11" Margin="0,2,0,8"
+                                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                                       FontFamily="{StaticResource UiFont}" />
+
+                                            <StackPanel x:Name="UsageBars" />
+
+                                            <TextBlock x:Name="UsageOffline" Text="CC Switch 未运行"
+                                                       FontSize="11" Margin="0,6,0,0" Visibility="Collapsed"
+                                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                                       FontFamily="{StaticResource UiFont}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- todos -->
+                                    <Border x:Name="TodoCard" Style="{StaticResource CelCard}" Tag="todo">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="待办" FontSize="12.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource Cel.TextBrush}"
+                                                           FontFamily="{StaticResource DisplayFont}" />
+                                                <TextBlock x:Name="TodoCount" HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center" FontSize="10"
+                                                           Foreground="{DynamicResource Cel.MutedBrush}"
+                                                           FontFamily="{StaticResource UiFont}" />
+                                            </Grid>
+
+                                            <StackPanel x:Name="TodoList" Margin="0,8,0,0" />
+
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" CornerRadius="10" Padding="10,5"
+                                                        Background="{DynamicResource Cel.ItemBrush}"
+                                                        BorderThickness="1"
+                                                        BorderBrush="{DynamicResource Cel.ItemEdgeBrush}">
+                                                    <TextBox x:Name="TodoInput" Style="{StaticResource SearchBox}"
+                                                             FontSize="12" />
+                                                </Border>
+                                                <Button Grid.Column="1" x:Name="TodoAddBtn" Margin="6,0,0,0"
+                                                        Style="{StaticResource CelIconButton}"
+                                                        Content="&#xE710;" ToolTip="添加待办" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- notes -->
+                                    <Border x:Name="NoteCard" Style="{StaticResource CelCard}" Tag="note">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="便签" FontSize="12.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource Cel.TextBrush}"
+                                                           FontFamily="{StaticResource DisplayFont}" />
+                                                <Button x:Name="NoteAddBtn" HorizontalAlignment="Right"
+                                                        Style="{StaticResource CelIconButton}"
+                                                        Content="&#xE710;" ToolTip="新建便签" />
+                                            </Grid>
+
+                                            <StackPanel x:Name="NoteList" Margin="0,8,0,0" />
+
+                                            <TextBlock x:Name="NoteEmpty" Text="没有便签。点 + 新建一张，可设置自动消失时间。"
+                                                       Margin="0,6,0,0" TextWrapping="Wrap" FontSize="11"
+                                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                                       FontFamily="{StaticResource UiFont}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- sticker shadow -->
+            <Border.Effect>
+                <DropShadowEffect x:Name="Sticker" Color="#3A5C8AA8" BlurRadius="26"
+                                  ShadowDepth="4" Direction="270" Opacity="0.5" />
+            </Border.Effect>
+        </Border>
+    </Grid>
+</Window>

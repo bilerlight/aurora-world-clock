@@ -25,6 +25,7 @@ namespace AuroraClock.Services
         public const int IdSettings = 3;
         public const int IdAlwaysOnTop = 4;
         public const int IdTileAll = 5;
+        public const int IdDock = 6;
 
         private readonly Action<int> _onPressed;
         private HwndSource? _source;

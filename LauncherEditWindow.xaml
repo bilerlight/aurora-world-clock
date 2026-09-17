@@ -1,0 +1,192 @@
+<Window x:Class="AuroraClock.LauncherEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="启动项"
+        Width="540"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Cel.MutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Width" Value="74" />
+        </Style>
+
+        <Style x:Key="InputShell" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Background" Value="{DynamicResource Cel.ItemBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Cel.ItemEdgeBrush}" />
+        </Style>
+
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Border x:Name="Glass" CornerRadius="{DynamicResource Cel.CornerRadius}"
+                Background="{DynamicResource Cel.PanelBrush}"
+                BorderThickness="{DynamicResource Cel.EdgeThickness}"
+                BorderBrush="{DynamicResource Cel.EdgeBrush}"
+                Padding="18,16,18,16">
+            <Border.Effect>
+                <DropShadowEffect Color="#615C8AA8" BlurRadius="26" ShadowDepth="5"
+                                  Direction="270" Opacity="0.5" />
+            </Border.Effect>
+
+            <StackPanel>
+                <!-- header -->
+                <Grid Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="28" Height="28" CornerRadius="10"
+                                Background="{DynamicResource Cel.AccentBrush}" Margin="0,0,10,0">
+                            <TextBlock x:Name="HeadGlyph" Text="&#xE71D;"
+                                       FontFamily="{StaticResource GlyphFont}" FontSize="14"
+                                       Foreground="White" HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="HeadTitle" Text="添加启动项" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource Cel.TextBrush}"
+                                       FontFamily="{StaticResource DisplayFont}" />
+                            <TextBlock Text="程序、文件夹，或者带工作目录的 cmd 命令"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                       FontFamily="{StaticResource UiFont}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Button x:Name="CloseBtn" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Style="{StaticResource CloseButton}" />
+                </Grid>
+
+                <!-- kind -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <Button x:Name="KindAppBtn" Content="程序 / 快捷方式" Padding="14,6" />
+                    <Button x:Name="KindCmdBtn" Content="cmd 命令" Padding="14,6" Margin="6,0,0,0" />
+                    <Button x:Name="KindFolderBtn" Content="文件夹" Padding="14,6" Margin="6,0,0,0" />
+                    <Button x:Name="PresetBtn" Content="AI 预设 &#xE70D;" Padding="12,6"
+                            FontFamily="{StaticResource UiFont}" Margin="6,0,0,0" />
+                </StackPanel>
+
+                <!-- name -->
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="名称" Style="{StaticResource FieldLabel}" />
+                    <Border Grid.Column="1" Style="{StaticResource InputShell}">
+                        <TextBox x:Name="NameBox" Style="{StaticResource SearchBox}" />
+                    </Border>
+                </Grid>
+
+                <!-- target -->
+                <Grid x:Name="TargetRow" Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TargetLabel" Text="程序" Style="{StaticResource FieldLabel}" />
+                    <Border Grid.Column="1" Style="{StaticResource InputShell}">
+                        <TextBox x:Name="TargetBox" Style="{StaticResource SearchBox}" />
+                    </Border>
+                    <Button Grid.Column="2" x:Name="BrowseTargetBtn" Content="浏览…" Margin="6,0,0,0" />
+                </Grid>
+
+                <!-- args -->
+                <Grid x:Name="ArgsRow" Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="参数" Style="{StaticResource FieldLabel}" />
+                    <Border Grid.Column="1" Style="{StaticResource InputShell}">
+                        <TextBox x:Name="ArgsBox" Style="{StaticResource SearchBox}" />
+                    </Border>
+                </Grid>
+
+                <!-- working dir -->
+                <Grid x:Name="WorkRow" Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="工作目录" Style="{StaticResource FieldLabel}" />
+                    <Border Grid.Column="1" Style="{StaticResource InputShell}">
+                        <TextBox x:Name="WorkBox" Style="{StaticResource SearchBox}" />
+                    </Border>
+                    <Button Grid.Column="2" x:Name="BrowseWorkBtn" Content="浏览…" Margin="6,0,0,0" />
+                </Grid>
+
+                <!-- terminal -->
+                <Grid x:Name="TermRow" Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="终端" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="TermCmdBtn" Content="cmd" Padding="14,6" />
+                        <Button x:Name="TermPwshBtn" Content="PowerShell" Padding="14,6" Margin="6,0,0,0" />
+                        <Button x:Name="TermWtBtn" Content="Windows Terminal" Padding="14,6"
+                                Margin="6,0,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- options -->
+                <Grid x:Name="OptionRow" Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="选项" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Grid.Column="1">
+                        <CheckBox x:Name="KeepOpenToggle" Style="{StaticResource ToggleSwitch}"
+                                  Content="命令结束后保留窗口" Margin="0,0,0,6" />
+                        <CheckBox x:Name="AdminToggle" Style="{StaticResource ToggleSwitch}"
+                                  Content="以管理员身份运行" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- preview + hint -->
+                <Border x:Name="PreviewBox" CornerRadius="10" Padding="10,8" Margin="0,12,0,0"
+                        Background="{DynamicResource Cel.ItemBrush}"
+                        BorderThickness="2" BorderBrush="{DynamicResource Cel.ItemEdgeBrush}">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl x:Name="IconPreview" Width="30" Height="30"
+                                        VerticalAlignment="Center" />
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="PreviewTitle" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cel.TextBrush}"
+                                       FontFamily="{StaticResource DisplayFont}" />
+                            <TextBlock x:Name="PreviewDetail" FontSize="10.5"
+                                       Foreground="{DynamicResource Cel.MutedBrush}"
+                                       FontFamily="{StaticResource UiFont}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- footer -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                    <Button x:Name="CancelBtn" Content="取消" Padding="18,7" />
+                    <Button x:Name="OkBtn" Content="保存" Padding="22,7" Margin="8,0,0,0"
+                            Style="{StaticResource AccentButton}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

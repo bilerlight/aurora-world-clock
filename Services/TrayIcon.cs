@@ -18,6 +18,8 @@ namespace AuroraClock.Services
         private ToolStripMenuItem? _passItem;
         private ToolStripMenuItem? _visItem;
         private ToolStripMenuItem? _usageItem;
+        private ToolStripMenuItem? _dockItem;
+        private ToolStripMenuItem? _floatItem;
 
         public TrayIcon(AppController app) => _app = app;
 
@@ -32,9 +34,14 @@ namespace AuroraClock.Services
                 ForeColor = Color.FromArgb(240, 245, 252)
             };
 
-            _visItem = new ToolStripMenuItem($"显示时钟  Show clocks ({_app.LabelToggleVisible})");
+            _visItem = new ToolStripMenuItem($"显示 / 隐藏全部  Show all ({_app.LabelToggleVisible})");
             _visItem.Click += (_, _) => _app.ToggleVisible();
             _menu.Items.Add(_visItem);
+
+            var floating = new ToolStripMenuItem("浮动时钟组件  Floating clock widgets");
+            floating.Click += (_, _) => _app.ToggleFloatingClocks();
+            _floatItem = floating;
+            _menu.Items.Add(floating);
 
             _passItem = new ToolStripMenuItem($"指针穿透  Click-through ({_app.LabelClickThrough})");
             _passItem.Click += (_, _) => _app.ToggleClickThrough();
@@ -56,6 +63,14 @@ namespace AuroraClock.Services
 
             _menu.Items.Add(new ToolStripSeparator());
             _menu.Items.Add(Item("Aurora 中心（待办/提醒/便签/用量）", (_, _) => _app.ShowDashboard()));
+
+            var dock = new ToolStripMenuItem($"右侧盒子  Dock box ({_app.LabelDock})");
+            dock.Click += (_, _) => _app.ToggleDock();
+            _dockItem = dock;
+            _menu.Items.Add(dock);
+
+            _menu.Items.Add(Item("添加启动项…  Add launcher", (_, _) => _app.AddLauncherInteractive()));
+
             var usage = new ToolStripMenuItem("显示用量组件");
             usage.Click += (_, _) =>
             {
@@ -92,6 +107,8 @@ namespace AuroraClock.Services
             if (_passItem != null) _passItem.Checked = _app.Config.ClickThrough;
             if (_visItem != null) _visItem.Checked = !_app.Config.Hidden;
             if (_usageItem != null) _usageItem.Checked = _app.Config.ShowUsageWidget;
+            if (_dockItem != null) _dockItem.Checked = _app.Config.DockEnabled;
+            if (_floatItem != null) _floatItem.Checked = _app.Config.ShowFloatingClocks;
         }
 
         /// <summary>Balloon tip used to explain how to come back from click-through mode.</summary>
