@@ -50,6 +50,30 @@ namespace AuroraClock
         private double _dragTop;
         private double _resizeCross;
 
+        /// <summary>Cursor tracking used to tell a deliberate edge bump from a cursor that just sits there.</summary>
+        private Point _lastCursor;
+        private double _edgePressure;
+        private DateTime _hiddenAtUtc = DateTime.MinValue;
+        private int _moveToken;
+
+        /// <summary>
+        /// Last time a key was pressed inside the dock. Keyboard focus alone is not a reason to stay
+        /// open (the todo box keeps focus forever), but active typing is.
+        /// </summary>
+        private DateTime _lastKeyUtc = DateTime.MinValue;
+
+        private bool IsTypingRecently =>
+            (DateTime.UtcNow - _lastKeyUtc).TotalSeconds < Math.Max(2.0, _app.Config.DockAutoHideDelay);
+
+        /// <summary>How close to the screen edge counts as touching it.</summary>
+        private const double BumpReach = 2;
+
+        /// <summary>Movement toward the edge needed to accept a bump (stops a parked cursor waking it).</summary>
+        private const double BumpPressure = 10;
+
+        /// <summary>A bump right after hiding is ignored, so the dock cannot flicker.</summary>
+        private const double BumpCooldownMs = 400;
+
         private Edge CurrentEdge => (_app.Config.DockEdge ?? "Right").Trim().ToLowerInvariant() switch
         {
             "left" => Edge.Left,
@@ -69,6 +93,9 @@ namespace AuroraClock
             MouseRightButtonUp += OnBackgroundMenu;
             MouseEnter += (_, _) => OnPointerEnter();
             MouseLeave += (_, _) => OnPointerLeave();
+            // tunnelling events: fires for every child, so any typing counts
+            PreviewKeyDown += (_, _) => _lastKeyUtc = DateTime.UtcNow;
+            PreviewTextInput += (_, _) => _lastKeyUtc = DateTime.UtcNow;
 
             HeaderBar.MouseLeftButtonDown += OnHeaderDrag;
             HeaderBar.MouseMove += OnHeaderMove;
@@ -104,9 +131,8 @@ namespace AuroraClock
             _hideTimer.Tick += (_, _) =>
             {
                 _hideTimer.Stop();
-                // never yank the box away while the pointer is on it, near its edge, or typing in it
-                if (IsMouseOver || IsKeyboardFocusWithin) return;
-                if (PointerInEdgeZone(18)) return;
+                // never yank the box away while the pointer is on it or the user is typing in it
+                if (IsMouseOver || IsTypingRecently) return;
                 if (_dragging || _resizing) return;
                 HideNow();
             };
@@ -155,9 +181,13 @@ namespace AuroraClock
             _clockTimer.Start();
             _usageTimer.Start();
             _bumpTimer.Start();
+            if (TryCursor(out double cx, out double cy)) _lastCursor = new Point(cx, cy);
 
             ApplyGeometry(animate: false);
             if (_app.Config.DockAutoHide) HideNow(animate: false);
+
+            // do not keep a text box focused just because the window was shown
+            Keyboard.ClearFocus();
 
             // Never touch Window.Opacity on a layered window - fade the glass layer instead.
             Glass.Opacity = 0;
@@ -1156,8 +1186,22 @@ namespace AuroraClock
                     new DoubleAnimation(fromTop, top, TimeSpan.FromMilliseconds(ms))
                     { FillBehavior = FillBehavior.Stop, EasingFunction = ease });
 
-            var settle = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms + 40) };
-            settle.Tick += (_, _) => { settle.Stop(); _backdrop?.Refresh(); };
+            // Guarantee the final resting place: if anything interrupted the animation the window
+            // would otherwise stop part-way and stay visible as a sliver.
+            int token = ++_moveToken;
+            var settle = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms + 70) };
+            settle.Tick += (_, _) =>
+            {
+                settle.Stop();
+                if (token == _moveToken)
+                {
+                    BeginAnimation(LeftProperty, null);
+                    BeginAnimation(TopProperty, null);
+                    Left = left;
+                    Top = top;
+                }
+                _backdrop?.Refresh();
+            };
             settle.Start();
         }
 
@@ -1182,15 +1226,14 @@ namespace AuroraClock
         private void OnPointerLeave()
         {
             if (!_app.Config.DockAutoHide || _dragging || _resizing) return;
-            _hideTimer.Interval = TimeSpan.FromSeconds(Math.Max(0.4, _app.Config.DockAutoHideDelay));
-            _hideTimer.Stop();
-            _hideTimer.Start();
+            ArmHideTimer();
             RefreshFooter();
         }
 
         private void Reveal(bool animate)
         {
             _autoHidden = false;
+            _edgePressure = 0;
             var b = ShownBounds();
             MoveTo(b.Left, b.Top, animate ? 220 : 0, EasingMode.EaseOut);
         }
@@ -1198,53 +1241,115 @@ namespace AuroraClock
         private void HideNow(bool animate = true)
         {
             if (!_app.Config.DockAutoHide || _collapsed || _dragging || _resizing) return;
+            if (IsMouseOver || IsTypingRecently) return;
+
             _hideTimer.Stop();
             _autoHidden = true;
+            _hiddenAtUtc = DateTime.UtcNow;
             SetHiddenPosition(animate);
         }
 
         /// <summary>
-        /// Watches for the pointer bumping the screen edge the dock hides behind - the dock then
-        /// slides back even if it had retreated completely out of sight.
+        /// Runs while the dock is alive. When it is visible this makes sure the hide timer is always
+        /// armed (a bump reveal never produces a MouseLeave, so relying on mouse events alone left the
+        /// box stuck on screen). When it is hidden this looks for a deliberate push against the edge.
         /// </summary>
         private void BumpTick()
         {
-            if (!_autoHidden || !_app.Config.DockAutoHide || !_app.Config.DockBumpToReveal) return;
-            if (_dragging || _resizing) return;
+            if (!_app.Config.DockAutoHide || _collapsed || _dragging || _resizing) return;
 
-            if (PointerInEdgeZone(3)) Reveal(animate: true);
+            if (!TryCursor(out double x, out double y))
+            {
+                if (!_autoHidden) ArmHideTimer();
+                return;
+            }
+
+            // accumulate how far the pointer pushed into the docked edge since the last tick
+            double toward = CurrentEdge switch
+            {
+                Edge.Right => x - _lastCursor.X,
+                Edge.Left => _lastCursor.X - x,
+                Edge.Top => _lastCursor.Y - y,
+                _ => y - _lastCursor.Y
+            };
+            _lastCursor = new Point(x, y);
+
+            if (_autoHidden)
+            {
+                if (!_app.Config.DockBumpToReveal) return;
+                if ((DateTime.UtcNow - _hiddenAtUtc).TotalMilliseconds < BumpCooldownMs)
+                {
+                    _edgePressure = 0;
+                    return;
+                }
+                if (!PointerInEdgeZone(BumpReach))
+                {
+                    _edgePressure = 0;
+                    return;
+                }
+
+                _edgePressure = toward > 0 ? _edgePressure + toward : 0;
+                if (_edgePressure >= BumpPressure)
+                {
+                    _edgePressure = 0;
+                    Reveal(animate: true);
+                }
+                return;
+            }
+
+            // visible: keep the hide timer running whenever the pointer is not on the panel
+            if (IsMouseOver || IsTypingRecently)
+            {
+                _hideTimer.Stop();
+                return;
+            }
+            if (!_hideTimer.IsEnabled) ArmHideTimer();
         }
 
-        /// <summary>
-        /// True while the pointer is inside the strip of screen along the docked edge that the dock
-        /// owns. Revealing puts the panel a small gap away from the edge, so without this the panel
-        /// would hide again the instant the pointer crossed that gap.
-        /// </summary>
-        private bool PointerInEdgeZone(double zone)
+        /// <summary>Reads the cursor in DIPs so it can be compared with the work area.</summary>
+        private bool TryCursor(out double x, out double y)
         {
+            x = y = 0;
             try
             {
                 var dpi = VisualTreeHelper.GetDpi(this);
                 var cursor = System.Windows.Forms.Cursor.Position;
-                double x = cursor.X / dpi.DpiScaleX;
-                double y = cursor.Y / dpi.DpiScaleY;
-
-                var wa = SystemParameters.WorkArea;
-                var b = ShownBounds();
-                const double slack = 40;
-
-                return CurrentEdge switch
-                {
-                    Edge.Left => x <= wa.Left + zone && y >= b.Top - slack && y <= b.Bottom + slack,
-                    Edge.Right => x >= wa.Right - zone && y >= b.Top - slack && y <= b.Bottom + slack,
-                    Edge.Top => y <= wa.Top + zone && x >= b.Left - slack && x <= b.Right + slack,
-                    _ => y >= wa.Bottom - zone && x >= b.Left - slack && x <= b.Right + slack
-                };
+                x = cursor.X / dpi.DpiScaleX;
+                y = cursor.Y / dpi.DpiScaleY;
+                return true;
             }
             catch
             {
                 return false;
             }
+        }
+
+        private void ArmHideTimer()
+        {
+            _hideTimer.Interval = TimeSpan.FromSeconds(Math.Max(0.4, _app.Config.DockAutoHideDelay));
+            _hideTimer.Stop();
+            _hideTimer.Start();
+        }
+
+        /// <summary>
+        /// True while the pointer is inside the strip of screen along the docked edge that the dock
+        /// owns.
+        /// </summary>
+        private bool PointerInEdgeZone(double zone)
+        {
+            if (!TryCursor(out double x, out double y)) return false;
+
+            var wa = SystemParameters.WorkArea;
+            var b = ShownBounds();
+            const double slack = 40;
+
+            return CurrentEdge switch
+            {
+                Edge.Left => x <= wa.Left + zone && y >= b.Top - slack && y <= b.Bottom + slack,
+                Edge.Right => x >= wa.Right - zone && y >= b.Top - slack && y <= b.Bottom + slack,
+                Edge.Top => y <= wa.Top + zone && x >= b.Left - slack && x <= b.Right + slack,
+                _ => y >= wa.Bottom - zone && x >= b.Left - slack && x <= b.Right + slack
+            };
         }
 
         public bool IsAutoHidden => _autoHidden;

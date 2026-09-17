@@ -4,7 +4,7 @@
 ;   ISCC.exe /DAppDir="..\dist\app" /O"..\dist" setup.iss
 
 #define AppName "Aurora World Clock"
-#define AppVersion "1.2.1"
+#define AppVersion "1.2.2"
 #define AppPublisher "Aurora"
 #define AppExe "AuroraClock.exe"
 
@@ -55,6 +55,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "立即启动 {#AppName}"; Flags: nowait postinstall skipifsilent
+
 
 
 
